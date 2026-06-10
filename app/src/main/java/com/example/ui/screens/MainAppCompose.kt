@@ -810,8 +810,7 @@ fun InboxTabScreen(
                     }
                 }
                 
-                // Clickable Avatar displaying the selected bound account
-                var expanded by remember { mutableStateOf(false) }
+                // Avatar displaying the selected bound account
                 val activeAccount = remember(selectedAccount, accounts) {
                     accounts.find { it.email == selectedAccount } ?: accounts.firstOrNull()
                 }
@@ -825,7 +824,6 @@ fun InboxTabScreen(
                                     colors = listOf(GrowwTeal, GrowwTealDark)
                                 )
                             )
-                            .clickable { expanded = true }
                             .testTag("search_profile_avatar"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -848,151 +846,56 @@ fun InboxTabScreen(
                             )
                         }
                     }
-                    
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("All Accounts", fontWeight = FontWeight.Bold) },
-                            onClick = {
-                                viewModel.selectedAccount.value = "All"
-                                expanded = false
-                            }
-                        )
-                        accounts.forEach { acc ->
-                            DropdownMenuItem(
-                                text = { Text(acc.email) },
-                                onClick = {
-                                    viewModel.selectedAccount.value = acc.email
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // 2. Streamlined combined Categories and Custom Tags horizontal strip
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Folder Categories
-            items(categories) { category ->
-                val isSelected = selectedCategory == category && selectedTag == "All"
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        viewModel.selectedCategory.value = category
-                        viewModel.selectedTag.value = "All"
-                    },
-                    label = { Text(category, fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
-                        selectedLabelColor = GrowwTeal,
-                        selectedLeadingIconColor = GrowwTeal
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.height(30.dp)
-                )
-            }
-            
-            // Thin visually distinct separator line 
-            item {
-                Box(
-                    modifier = Modifier
-                        .height(20.dp)
-                        .width(1.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
-                )
-            }
-            
-            // Custom Tags list
-            items(customTagsList.toList()) { tag ->
-                val isSelected = selectedTag == tag
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        if (isSelected) {
-                            viewModel.selectedTag.value = "All"
-                        } else {
-                            viewModel.selectedCategory.value = "All"
-                            viewModel.selectedTag.value = tag
-                        }
-                    },
-                    label = { Text(tag, fontSize = 12.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        selectedLabelColor = MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.height(30.dp).testTag("tag_filter_$tag")
-                )
-            }
-            
-            // Quick manage tag trigger chip inside the exact same row to prevent double-line stacking!
-            item {
-                var showManageTagsDialog by remember { mutableStateOf(false) }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(GrowwTeal.copy(alpha = 0.08f))
-                        .clickable { showManageTagsDialog = true }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Default.Add, "Manage Tags Icon", tint = GrowwTeal, modifier = Modifier.size(12.dp))
-                        Text("Tags", fontSize = 11.sp, color = GrowwTeal, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (showManageTagsDialog) {
-                    ManageTagsDialog(viewModel = viewModel, onDismiss = { showManageTagsDialog = false })
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 3. Compact Sort options & Unified Refresh Row
+        // 2. Bound Accounts Selector Strip & Refresh Sync Button
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Crisp Sort selections
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                sorts.forEach { sort ->
-                    val isSelected = selectedSortOrder == sort
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (isSelected) GrowwTeal.copy(alpha = 0.08f) 
-                                else Color.Transparent
-                            )
-                            .clickable { viewModel.selectedSortOrder.value = sort }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = sort,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) GrowwTeal else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                item {
+                    val isAllSelected = selectedAccount == "All" || selectedAccount == null
+                    FilterChip(
+                        selected = isAllSelected,
+                        onClick = { viewModel.selectedAccount.value = "All" },
+                        label = { Text("All", fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
+                            selectedLabelColor = GrowwTeal,
+                            selectedLeadingIconColor = GrowwTeal
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.height(30.dp)
+                    )
+                }
+
+                items(accounts) { account ->
+                    val isSelected = selectedAccount == account.email
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.selectedAccount.value = account.email },
+                        label = { Text(account.email, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
+                            selectedLabelColor = GrowwTeal,
+                            selectedLeadingIconColor = GrowwTeal
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.height(30.dp)
+                    )
                 }
             }
 
-            // Production ready: Only show the sync refresh icon.
-            // Move simulation controls to the Settings tab to ensure a highly polished experience.
             IconButton(
                 onClick = { viewModel.triggerSyncAll() },
                 modifier = Modifier.size(32.dp)
@@ -1282,24 +1185,11 @@ fun EmailMessageRowItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Colored Categories tags mimicking Groww tags
+                // Only show short email account badge representing target inbox
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(FocusColor(mail.category).copy(alpha = 0.15f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = mail.category,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FocusColor(mail.category)
-                        )
-                    }
                     val emailShort = mail.accountEmail.substringBefore("@")
                     Box(
                         modifier = Modifier
@@ -1312,40 +1202,6 @@ fun EmailMessageRowItem(
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                         )
-                    }
-                    // Custom assigned tags
-                    val listTags = mail.tagsString.split(",")
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() }
-                    listTags.take(2).forEach { tag ->
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.11f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = tag,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    if (listTags.size > 2) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.11f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "+${listTags.size - 2}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
 
@@ -1921,116 +1777,7 @@ fun EmailDetailDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Custom assigned tags display and management inside the Detail dialog
-                val allCustomTags by viewModel.customTags.collectAsState()
-                val assignedTags = remember(mail.tagsString) {
-                    mail.tagsString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Tags icon",
-                        tint = GrowwTeal,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Tags:",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (assignedTags.isEmpty()) {
-                                item {
-                                    Text(
-                                        "No tags assigned",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    )
-                                }
-                            } else {
-                                items(assignedTags) { tag ->
-                                    SuggestionChip(
-                                        onClick = { viewModel.toggleMessageTag(mail.id, tag) },
-                                        label = { Text(tag, fontSize = 10.sp) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        colors = SuggestionChipDefaults.suggestionChipColors(
-                                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            labelColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        modifier = Modifier.height(26.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Add tag button inside the row
-                        var showAssignTagsDropdown by remember { mutableStateOf(false) }
-                        Box {
-                            IconButton(
-                                onClick = { showAssignTagsDropdown = true },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.AddCircle, "Add Tag", tint = GrowwTeal, modifier = Modifier.size(20.dp))
-                            }
-                            DropdownMenu(
-                                expanded = showAssignTagsDropdown,
-                                onDismissRequest = { showAssignTagsDropdown = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Assign Tags:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall) },
-                                    onClick = {},
-                                    enabled = false
-                                )
-                                if (allCustomTags.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("No tags. Go to Inbox to create.", style = MaterialTheme.typography.bodySmall) },
-                                        onClick = { showAssignTagsDropdown = false }
-                                    )
-                                } else {
-                                    allCustomTags.forEach { tag ->
-                                        val isAssigned = assignedTags.contains(tag)
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    Checkbox(
-                                                        checked = isAssigned,
-                                                        onCheckedChange = { viewModel.toggleMessageTag(mail.id, tag) },
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Text(tag, style = MaterialTheme.typography.bodyMedium)
-                                                }
-                                            },
-                                            onClick = {
-                                                viewModel.toggleMessageTag(mail.id, tag)
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
 
                 // Message Text Content
                 Card(

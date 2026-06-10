@@ -16,7 +16,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class EmailRepository(context: Context) {
+class EmailRepository(private val context: Context) {
     private val db = EmailDatabase.getDatabase(context)
     private val dao = db.emailDao()
     private val okHttpClient = OkHttpClient.Builder()
@@ -230,10 +230,10 @@ class EmailRepository(context: Context) {
         newMessages.forEach { msg ->
             if (!msg.isRead) {
                 com.example.util.NotificationHelper.showEmailNotification(
-                    context = context,
-                    senderName = msg.senderName,
-                    subject = msg.subject,
-                    bodySnippet = msg.body
+                    context,
+                    msg.senderName,
+                    msg.subject,
+                    msg.body
                 )
             }
         }
