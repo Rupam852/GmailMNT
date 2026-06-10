@@ -37,6 +37,13 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     // Multi‑select state for bulk actions
     val selectedMailIds = MutableStateFlow<Set<String>>(emptySet())
 
+    init {
+        viewModelScope.launch {
+            repository.autoCategorizeExistingEmails()
+            triggerSyncAll()
+        }
+    }
+
     fun toggleMailSelection(id: String) {
         val current = selectedMailIds.value.toMutableSet()
         if (current.contains(id)) current.remove(id) else current.add(id)
