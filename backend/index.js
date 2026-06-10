@@ -139,18 +139,23 @@ app.get('/callback', async (req, res) => {
     
     // Express returns the authentication completion page. We deep link back to Android
     // using a custom scheme (geminimail://)
-    const email = await getUserEmail(tokens.access_token);
+    const userInfo = await getUserInfo(tokens.access_token);
+    const email = userInfo.email;
     
     // Construct Android redirections deep link
     // geminimail://oauth-callback?email=...&access_token=...&refresh_token=...&expires_at=...
     const redirectData = {
       email: email,
+      name: userInfo.name,
+      picture: userInfo.picture,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: Date.now() + (tokens.expiry_date || 3600 * 1000)
     };
 
     const schemeUrl = `geminimail://oauth-callback?email=${encodeURIComponent(redirectData.email)}` + 
+                      `&name=${encodeURIComponent(redirectData.name || '')}` +
+                      `&picture=${encodeURIComponent(redirectData.picture || '')}` +
                       `&access_token=${encodeURIComponent(redirectData.access_token)}` + 
                       `&refresh_token=${encodeURIComponent(redirectData.refresh_token || '')}` + 
                       `&expires_at=${redirectData.expires_at}`;
@@ -221,12 +226,16 @@ app.post('/refresh', async (req, res) => {
 /**
  * Helper: Query user profile info to get email address
  */
-async function getUserEmail(accessToken) {
+async function getUserInfo(accessToken) {
   const tempClient = new google.auth.OAuth2();
   tempClient.setCredentials({ access_token: accessToken });
   const oauth2 = google.oauth2({ version: 'v2', auth: tempClient });
   const userInfo = await oauth2.userinfo.get();
-  return userInfo.data.email;
+  return {
+    email: userInfo.data.email,
+    name: userInfo.data.name || '',
+    picture: userInfo.data.picture || ''
+  };
 }
 
 // Default layout greeting

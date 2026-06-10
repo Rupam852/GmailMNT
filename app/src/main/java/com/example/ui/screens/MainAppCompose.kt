@@ -75,9 +75,18 @@ fun MainAppCompose(
             val refreshToken = uri.getQueryParameter("refresh_token") ?: ""
             val expiresAtStr = uri.getQueryParameter("expires_at") ?: "0"
             val expiresAt = expiresAtStr.toLongOrNull() ?: 0L
+            val name = uri.getQueryParameter("name") ?: ""
+            val picture = uri.getQueryParameter("picture") ?: ""
 
             if (email.isNotEmpty() && accessToken.isNotEmpty()) {
-                viewModel.handleOAuthSuccess(email, accessToken, refreshToken.takeIf { it.isNotEmpty() }, expiresAt)
+                viewModel.handleOAuthSuccess(
+                    email = email,
+                    accessToken = accessToken,
+                    refreshToken = refreshToken.takeIf { it.isNotEmpty() },
+                    expiresAt = expiresAt,
+                    displayName = name.takeIf { it.isNotEmpty() },
+                    profilePictureUrl = picture.takeIf { it.isNotEmpty() }
+                )
                 Toast.makeText(fragmentActivity, "Account $email linked successfully!", Toast.LENGTH_LONG).show()
                 currentScreen = "dashboard"
             }
@@ -803,6 +812,9 @@ fun InboxTabScreen(
                 
                 // Clickable Avatar displaying the selected bound account
                 var expanded by remember { mutableStateOf(false) }
+                val activeAccount = remember(selectedAccount, accounts) {
+                    accounts.find { it.email == selectedAccount } ?: accounts.firstOrNull()
+                }
                 Box(modifier = Modifier.padding(end = 4.dp)) {
                     Box(
                         modifier = Modifier
@@ -817,13 +829,24 @@ fun InboxTabScreen(
                             .testTag("search_profile_avatar"),
                         contentAlignment = Alignment.Center
                     ) {
-                        val initial = selectedAccount?.take(1)?.uppercase() ?: "A"
-                        Text(
-                            text = initial,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        val profilePic = activeAccount?.profilePictureUrl
+                        if (!profilePic.isNullOrEmpty()) {
+                            coil.compose.AsyncImage(
+                                model = profilePic,
+                                contentDescription = "Active account profile picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            val displayName = activeAccount?.displayName ?: "All"
+                            val defaultAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(displayName)}&background=00d09c&color=fff&size=96"
+                            coil.compose.AsyncImage(
+                                model = defaultAvatarUrl,
+                                contentDescription = "Active account default avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
                     }
                     
                     DropdownMenu(
@@ -1174,7 +1197,7 @@ fun EmailMessageRowItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Profile Circle with Initials
+                    // Profile Circle with Image
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -1186,11 +1209,12 @@ fun EmailMessageRowItem(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = mail.senderName.take(1).uppercase(),
-                            color = GrowwTealDark,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                        val senderAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        coil.compose.AsyncImage(
+                            model = senderAvatarUrl,
+                            contentDescription = "Sender profile picture",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -1601,6 +1625,7 @@ fun SettingsTabScreen(
         )
 
         // 1. Interactive Profile panel
+        val primaryAccount = accounts.firstOrNull()
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(
@@ -1612,19 +1637,47 @@ fun SettingsTabScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(GrowwTeal.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, "User profile icon", tint = GrowwTeal, modifier = Modifier.size(32.dp))
+                val profilePic = primaryAccount?.profilePictureUrl
+                if (!profilePic.isNullOrEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                    ) {
+                        coil.compose.AsyncImage(
+                            model = profilePic,
+                            contentDescription = "User profile picture",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
+                } else {
+                    val defaultAvatarUrl = primaryAccount?.let { 
+                        "https://ui-avatars.com/api/?name=${android.net.Uri.encode(it.displayName)}&background=00d09c&color=fff&size=128"
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(GrowwTeal.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (defaultAvatarUrl != null) {
+                            coil.compose.AsyncImage(
+                                model = defaultAvatarUrl,
+                                contentDescription = "Default avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Default.Person, "User profile icon", tint = GrowwTeal, modifier = Modifier.size(32.dp))
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text("Inbox Master", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(accounts.firstOrNull()?.email ?: "No accounts registered", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                    Text(primaryAccount?.displayName ?: "Inbox Master", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(primaryAccount?.email ?: "No accounts registered", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                 }
             }
         }
@@ -1703,29 +1756,7 @@ fun SettingsTabScreen(
             }
         }
 
-        // 4. Render backend URL settings Configuration
-        Text("RENDER DEPLOY BACKEND", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    "Submit your active Node Express server hosted on Render. This serves stateless refreshes of Oauth Gmail clients securely.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = renderBackendUrl,
-                    onValueChange = { viewModel.setRenderBackendUrl(it) },
-                    label = { Text("Render Backend Endpoint") },
-                    modifier = Modifier.fillMaxWidth().testTag("backend_url_input"),
-                    shape = RoundedCornerShape(10.dp)
-                )
-            }
-        }
+
 
         // 5. Native hardware preference profiles
         Text("SECURITY & SYSTEM OPTION", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
@@ -1934,7 +1965,13 @@ fun EmailDetailDialog(
                             .background(GrowwTeal.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(mail.senderName.take(1).uppercase(), color = GrowwTealDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        val senderAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        coil.compose.AsyncImage(
+                            model = senderAvatarUrl,
+                            contentDescription = "Sender profile picture details",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {

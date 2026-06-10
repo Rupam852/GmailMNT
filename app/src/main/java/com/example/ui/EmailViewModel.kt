@@ -246,17 +246,20 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         email: String,
         accessToken: String,
         refreshToken: String?,
-        expiresAt: Long
+        expiresAt: Long,
+        displayName: String? = null,
+        profilePictureUrl: String? = null
     ) {
         viewModelScope.launch {
             val existing = repository.getAccountByEmail(email)
             val updated = EmailAccount(
                 email = email,
-                displayName = email.substringBefore("@").replaceFirstChar { it.uppercase() },
+                displayName = displayName ?: existing?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() },
                 provider = "Gmail",
                 accessToken = accessToken,
                 refreshToken = refreshToken ?: existing?.refreshToken ?: "",
-                expiresAt = expiresAt
+                expiresAt = expiresAt,
+                profilePictureUrl = profilePictureUrl ?: existing?.profilePictureUrl ?: ""
             )
             repository.addAccount(updated)
             // Synchronize of newly configured account completed inside addAccount

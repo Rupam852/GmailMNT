@@ -11,5 +11,6 @@ data class EmailAccount(
     val provider: String = "Gmail",
     val accessToken: String,
     val refreshToken: String,
-    val expiresAt: Long
+    val expiresAt: Long,
+    val profilePictureUrl: String = ""
 ) : Serializable
