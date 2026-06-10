@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Email Structure (Envelope) -->
+    <!-- Centering a 50dp x 36dp envelope neatly inside the 108dp safe canvas -->
+    <path
+        android:fillColor="#E6E1E5"
+        android:pathData="M31,38h46c2.8,0 5,2.2 5,5v26c0,2.8 -2.2,5 -5,5H31c-2.8,0 -5,-2.2 -5,-5V43c0,-2.8 2.2,-5 5,-5z" />
+    
+    <!-- Outer line detailing for high-contrast visibility -->
+    <path
+        android:strokeColor="#0A1931"
+        android:strokeWidth="1.8"
+        android:pathData="M31,38h46c2.8,0 5,2.2 5,5v26c0,2.8 -2.2,5 -5,5H31c-2.8,0 -5,-2.2 -5,-5V43c0,-2.8 2.2,-5 5,-5z" />
+
+    <!-- Open V fold of email envelope -->
+    <path
+        android:fillColor="#0A1931"
+        android:pathData="M31,39L54,55L77,39Z" />
+
+    <!-- Extra envelope detail vectors -->
+    <path
+        android:strokeColor="#0A1931"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M27,69L46,53.5 M81,69L62,53.5" />
+
+    <!-- Smart copilot Gemini Purple Spark on the seal -->
+    <path
+        android:fillColor="#D0BCFF"
+        android:pathData="M54,49 C54,49 55,46 57,45 C55,44 54,41 54,41 C54,41 53,44 51,45 C53,46 54,49 54,49 Z" />
+</vector>

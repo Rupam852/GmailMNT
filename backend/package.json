@@ -1,0 +1,21 @@
+{
+  "name": "gemini-mail-backend",
+  "version": "1.0.0",
+  "description": "Render backend for Gemini Mail - handles Gmail API OAuth token refresh and hosts Privacy Policy",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "google-auth-library": "^9.11.0",
+    "googleapis": "^137.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Gemini Mail Team",
+  "license": "MIT"
+}

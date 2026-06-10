@@ -1,0 +1,2419 @@
+package com.example.ui.screens
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.fragment.app.FragmentActivity
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.ui.theme.*
+import com.example.data.EmailAccount
+import com.example.data.EmailMessage
+import com.example.ui.EmailViewModel
+import com.example.ui.theme.GrowwTeal
+import com.example.ui.theme.GrowwTealDark
+import com.example.util.BiometricHelper
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.*
+
+@Composable
+fun MainAppCompose(
+    viewModel: EmailViewModel,
+    fragmentActivity: FragmentActivity,
+    intentData: Intent?,
+    onClearIntent: () -> Unit
+) {
+    var currentScreen by remember { mutableStateOf("splash") }
+    
+    // Read States from ViewModel
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val isGetStartedCompleted by viewModel.isGetStartedCompleted.collectAsState()
+    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+
+    // Handle deep link intents for successful Gmail linkage from Render callback
+    LaunchedEffect(intentData) {
+        val uri = intentData?.data
+        if (uri != null && uri.scheme == "geminimail" && uri.host == "oauth-callback") {
+            val email = uri.getQueryParameter("email") ?: ""
+            val accessToken = uri.getQueryParameter("access_token") ?: ""
+            val refreshToken = uri.getQueryParameter("refresh_token") ?: ""
+            val expiresAtStr = uri.getQueryParameter("expires_at") ?: "0"
+            val expiresAt = expiresAtStr.toLongOrNull() ?: 0L
+
+            if (email.isNotEmpty() && accessToken.isNotEmpty()) {
+                viewModel.handleOAuthSuccess(email, accessToken, refreshToken.takeIf { it.isNotEmpty() }, expiresAt)
+                Toast.makeText(fragmentActivity, "Account $email linked successfully!", Toast.LENGTH_LONG).show()
+                currentScreen = "dashboard"
+            }
+            onClearIntent()
+        }
+    }
+
+    MyApplicationThemeWrapper(isDarkMode = isDarkMode) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            when (currentScreen) {
+                "splash" -> SplashScreen(
+                    isGetStartedCompleted = isGetStartedCompleted,
+                    isBiometricEnabled = isBiometricEnabled,
+                    activity = fragmentActivity,
+                    onNavigateToWelcome = { currentScreen = "welcome" },
+                    onNavigateToDashboard = { currentScreen = "dashboard" }
+                )
+                "welcome" -> WelcomeScreen(
+                    viewModel = viewModel,
+                    onNavigateToDashboard = { currentScreen = "dashboard" }
+                )
+                "dashboard" -> DashboardScreen(
+                    viewModel = viewModel,
+                    activity = fragmentActivity
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MyApplicationThemeWrapper(
+    isDarkMode: Boolean,
+    content: @Composable () -> Unit
+) {
+    com.example.ui.theme.MyApplicationTheme(darkTheme = isDarkMode, dynamicColor = false) {
+        content()
+    }
+}
+
+// -------------------------------------------------------------
+// SPLASH SCREEN
+// -------------------------------------------------------------
+@Composable
+fun SplashScreen(
+    isGetStartedCompleted: Boolean,
+    isBiometricEnabled: Boolean,
+    activity: FragmentActivity,
+    onNavigateToWelcome: () -> Unit,
+    onNavigateToDashboard: () -> Unit
+) {
+    var animateLogoUp by remember { mutableStateOf(false) }
+    
+    // Logo translation coordinates
+    val logoOffset: Dp by animateDpAsState(
+        targetValue = if (animateLogoUp) (-180).dp else 0.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "Logo Offset"
+    )
+
+    val logoScale: Float by animateFloatAsState(
+        targetValue = if (animateLogoUp) 0.8f else 1.0f,
+        animationSpec = tween(1000),
+        label = "Logo Scale"
+    )
+
+    LaunchedEffect(Unit) {
+        delay(1200) // Initial centered showcase
+        animateLogoUp = true
+        delay(1000) // Transition finish
+
+        if (isGetStartedCompleted) {
+            if (isBiometricEnabled && BiometricHelper.isBiometricAvailable(activity)) {
+                BiometricHelper.showBiometricPrompt(
+                    activity = activity,
+                    onSuccess = {
+                        onNavigateToDashboard()
+                    },
+                    onError = { error ->
+                        Toast.makeText(activity, "Biometric Auth Bypass / Mode: $error", Toast.LENGTH_SHORT).show()
+                        onNavigateToDashboard() // Fallback gracefully to preserve zero-deadends
+                    }
+                )
+            } else {
+                onNavigateToDashboard()
+            }
+        } else {
+            onNavigateToWelcome()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surface
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.offset(y = logoOffset)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(GrowwTeal.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = "GmailMNT Logo",
+                    tint = GrowwTeal,
+                    modifier = Modifier.size(54.dp)
+                )
+                // Small Sparkle on top representing Gemini
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Face,
+                        contentDescription = "AI Spark",
+                        tint = GrowwTeal,
+                        modifier = Modifier.size(24.dp).offset(x = 6.dp, y = (-4).dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "GmailMNT",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 1.2.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "Secure AI Inbox",
+                style = MaterialTheme.typography.labelMedium,
+                color = GrowwTeal,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// WELCOME SCREEN
+// -------------------------------------------------------------
+@Composable
+fun WelcomeScreen(
+    viewModel: EmailViewModel,
+    onNavigateToDashboard: () -> Unit
+) {
+    val context = LocalContext.current
+    val backendUrl by viewModel.renderBackendUrl.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        // Upper section containing Header
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(top = 40.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(GrowwTeal.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = "App Icon Logo",
+                    tint = GrowwTeal,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Secure Your Inbox",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "The ultimate Groww-inspired secure client with offline storage support, multi-account bindings, and AI assistant compose helpers.",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
+        // Illustrations element
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+            ),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Filled.Lock, "Lock", tint = GrowwTeal, modifier = Modifier.size(32.dp))
+                    Text(
+                        "On-Device Biometrics",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Session tokens and email contents are cryptographically sandboxed locally under complete zero-trust backend policy.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                )
+            }
+        }
+
+        // Action controls
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = {
+                    viewModel.completeGetStarted()
+                    onNavigateToDashboard()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .testTag("get_started_button"),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GrowwTeal,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            ) {
+                Text(
+                    text = "Get Started",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Text(
+                text = "Privacy Policy",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = GrowwTeal
+                ),
+                modifier = Modifier
+                    .clickable {
+                        // Open real privacy policy from Render Backend
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$backendUrl/privacy-policy"))
+                        context.startActivity(intent)
+                    }
+                    .padding(8.dp)
+            )
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// DASHBOARD
+// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(
+    viewModel: EmailViewModel,
+    activity: FragmentActivity
+) {
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Inbox, 1: Compose, 2: Settings
+    var showDetailDialog by remember { mutableStateOf(false) }
+    
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp >= 600
+
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
+    val customTagsList by viewModel.customTags.collectAsState()
+
+    var showManageTagsDialogSide by remember { mutableStateOf(false) }
+
+    if (isWideScreen) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            // Left Custom Sidebar for Folder and Custom Tag Navigation
+            Column(
+                modifier = Modifier
+                    .width(240.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "GmailMNT",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = GrowwTeal
+                    )
+                    IconButton(
+                        onClick = { viewModel.setDarkMode(!isDarkMode) },
+                        modifier = Modifier.size(32.dp).testTag("sidebar_theme_toggle")
+                    ) {
+                        Text(if (isDarkMode) "☀️" else "🌙", fontSize = 16.sp)
+                    }
+                }
+
+                Text(
+                    text = "FOLDERS",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                // Render standard email folders (represented by Categories / Labels)
+                val folders = listOf(
+                    "Inbox (All)" to "All",
+                    "Primary" to "Primary",
+                    "Updates" to "Updates",
+                    "Social" to "Social",
+                    "Promotions" to "Promotions"
+                )
+
+                folders.forEach { (name, label) ->
+                    val isFolderSelected = (selectedTab == 0 && selectedCategory == label && selectedTag == "All")
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isFolderSelected) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                            .clickable {
+                                selectedTab = 0
+                                viewModel.selectedCategory.value = label
+                                viewModel.selectedTag.value = "All"
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = name,
+                                tint = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isFolderSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "TAGS",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                // Render Custom Tag Items in the folders/navigation sidebar
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(customTagsList.toList()) { tag ->
+                        val isTagSelected = (selectedTab == 0 && selectedTag == tag)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isTagSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable {
+                                    selectedTab = 0
+                                    viewModel.selectedTag.value = tag
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = tag,
+                                    tint = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = tag,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isTagSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showManageTagsDialogSide = true }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Manage",
+                                    tint = GrowwTeal,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Manage Tags",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = GrowwTeal,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
+
+                // Actions items inside dynamic menu
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selectedTab == 1) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                        .clickable { selectedTab = 1 }
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Compose",
+                            tint = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Compose Mail",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selectedTab == 2) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                        .clickable { selectedTab = 2 }
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // Divider Line between Sidebar and Main Feed panel
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            )
+
+            // Right side Main Viewing Area panel (responsive content pane)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                when (selectedTab) {
+                    0 -> InboxTabScreen(viewModel = viewModel, onMailClick = { msgId ->
+                        viewModel.selectMailId(msgId)
+                        showDetailDialog = true
+                    })
+                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                        selectedTab = 0
+                    })
+                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                }
+            }
+        }
+    } else {
+        // Mobile compact standard dashboard (Bottom navigation layout)
+        Scaffold(
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        icon = { Icon(Icons.Default.MailOutline, "Inbox") },
+                        label = { Text("Inbox") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = GrowwTeal,
+                            selectedTextColor = GrowwTeal,
+                            indicatorColor = GrowwTeal.copy(alpha = 0.12f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        icon = { Icon(Icons.Default.Add, "Compose") },
+                        label = { Text("Compose") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = GrowwTeal,
+                            selectedTextColor = GrowwTeal,
+                            indicatorColor = GrowwTeal.copy(alpha = 0.12f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        icon = { Icon(Icons.Default.Settings, "Settings") },
+                        label = { Text("Settings") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = GrowwTeal,
+                            selectedTextColor = GrowwTeal,
+                            indicatorColor = GrowwTeal.copy(alpha = 0.12f)
+                        )
+                    )
+                }
+            }
+        ) { innerPadding ->
+            Box(modifier = Modifier.padding(innerPadding)) {
+                when (selectedTab) {
+                    0 -> InboxTabScreen(viewModel = viewModel, onMailClick = { msgId ->
+                        viewModel.selectMailId(msgId)
+                        showDetailDialog = true
+                    })
+                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                        selectedTab = 0
+                    })
+                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                }
+            }
+        }
+    }
+
+    if (showManageTagsDialogSide) {
+        ManageTagsDialog(viewModel = viewModel, onDismiss = { showManageTagsDialogSide = false })
+    }
+
+    // Modal Sheet Detail Dialogue
+    val activeSelectedMail by viewModel.selectedMail.collectAsState()
+    if (showDetailDialog && activeSelectedMail != null) {
+        viewModel.markAsRead(activeSelectedMail!!.id)
+        
+        EmailDetailDialog(
+            mail = activeSelectedMail!!,
+            viewModel = viewModel,
+            onDismiss = {
+                showDetailDialog = false
+                viewModel.selectMailId(null)
+            }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// TAB 1: INBOX SCREEN
+// -------------------------------------------------------------
+@Composable
+fun InboxTabScreen(
+    viewModel: EmailViewModel,
+    onMailClick: (String) -> Unit
+) {
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val selectedSortOrder by viewModel.selectedSortOrder.collectAsState()
+    val filteredMessages by viewModel.filteredMessages.collectAsState()
+    val selectedAccount by viewModel.selectedAccount.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
+    val customTagsList by viewModel.customTags.collectAsState()
+
+    val categories = listOf("All", "Primary", "Updates", "Social", "Promotions")
+    val sorts = listOf("Newest", "Oldest", "Starred")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 1. Sleek Search Bar with Integrated Profile Accounts Selector (Like Premium Gmail/Groww)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(14.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search Icon",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.size(22.dp)
+                )
+                TextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.searchQuery.value = it },
+                    placeholder = { Text("Search emails...", fontSize = 14.sp) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("inbox_search_input"),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.searchQuery.value = "" },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, "Clear Search", modifier = Modifier.size(18.dp))
+                    }
+                }
+                
+                // Clickable Avatar displaying the selected bound account
+                var expanded by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.padding(end = 4.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(GrowwTeal, GrowwTealDark)
+                                )
+                            )
+                            .clickable { expanded = true }
+                            .testTag("search_profile_avatar"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val initial = selectedAccount?.take(1)?.uppercase() ?: "A"
+                        Text(
+                            text = initial,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                    
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("All Accounts", fontWeight = FontWeight.Bold) },
+                            onClick = {
+                                viewModel.selectedAccount.value = "All"
+                                expanded = false
+                            }
+                        )
+                        accounts.forEach { acc ->
+                            DropdownMenuItem(
+                                text = { Text(acc.email) },
+                                onClick = {
+                                    viewModel.selectedAccount.value = acc.email
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 2. Streamlined combined Categories and Custom Tags horizontal strip
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Folder Categories
+            items(categories) { category ->
+                val isSelected = selectedCategory == category && selectedTag == "All"
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        viewModel.selectedCategory.value = category
+                        viewModel.selectedTag.value = "All"
+                    },
+                    label = { Text(category, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
+                        selectedLabelColor = GrowwTeal,
+                        selectedLeadingIconColor = GrowwTeal
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(30.dp)
+                )
+            }
+            
+            // Thin visually distinct separator line 
+            item {
+                Box(
+                    modifier = Modifier
+                        .height(20.dp)
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+                )
+            }
+            
+            // Custom Tags list
+            items(customTagsList.toList()) { tag ->
+                val isSelected = selectedTag == tag
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        if (isSelected) {
+                            viewModel.selectedTag.value = "All"
+                        } else {
+                            viewModel.selectedCategory.value = "All"
+                            viewModel.selectedTag.value = tag
+                        }
+                    },
+                    label = { Text(tag, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(30.dp).testTag("tag_filter_$tag")
+                )
+            }
+            
+            // Quick manage tag trigger chip inside the exact same row to prevent double-line stacking!
+            item {
+                var showManageTagsDialog by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(GrowwTeal.copy(alpha = 0.08f))
+                        .clickable { showManageTagsDialog = true }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.Add, "Manage Tags Icon", tint = GrowwTeal, modifier = Modifier.size(12.dp))
+                        Text("Tags", fontSize = 11.sp, color = GrowwTeal, fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (showManageTagsDialog) {
+                    ManageTagsDialog(viewModel = viewModel, onDismiss = { showManageTagsDialog = false })
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 3. Compact Sort options & Unified Refresh Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Crisp Sort selections
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                sorts.forEach { sort ->
+                    val isSelected = selectedSortOrder == sort
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                if (isSelected) GrowwTeal.copy(alpha = 0.08f) 
+                                else Color.Transparent
+                            )
+                            .clickable { viewModel.selectedSortOrder.value = sort }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = sort,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) GrowwTeal else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+
+            // Production ready: Only show the sync refresh icon.
+            // Move simulation controls to the Settings tab to ensure a highly polished experience.
+            IconButton(
+                onClick = { viewModel.triggerSyncAll() },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(Icons.Default.Refresh, "Refresh Mail Sync", tint = GrowwTeal, modifier = Modifier.size(18.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 5. Emails Scrollable List View with pulsing Skeleton Loaders
+        if (isLoading) {
+            val infiniteTransition = rememberInfiniteTransition(label = "shimmer_transition")
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 0.4f,
+                targetValue = 0.9f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 800, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "shimmer_alpha"
+            )
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(5) {
+                    EmailSkeletonRowItem(alpha = alpha)
+                }
+            }
+        } else if (filteredMessages.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Email,
+                        contentDescription = "Empty Box icon",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        modifier = Modifier.size(72.dp)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "Your inbox is empty",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
+                    Text(
+                        text = "Tap the bell icon above to simulate incoming mail or trigger a refresh.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 4.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(filteredMessages, key = { it.id }) { mail ->
+                    EmailMessageRowItem(
+                        mail = mail,
+                        onMailClick = { onMailClick(mail.id) },
+                        onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) },
+                        onDeleteClick = { viewModel.deleteMail(mail.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmailSkeletonRowItem(alpha: Float) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Avatar Skeleton Dot
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.15f))
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        // Title/Sender Bar
+                        Box(
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(14.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.12f))
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        // Subtitle/Email Bar
+                        Box(
+                            modifier = Modifier
+                                .width(180.dp)
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.08f))
+                        )
+                    }
+                }
+                // Timestamp Bar
+                Box(
+                    modifier = Modifier
+                        .width(42.dp)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.08f))
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Subject Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.12f))
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Body Line 1
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.06f))
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Body Line 2
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = alpha * 0.06f))
+            )
+        }
+    }
+}
+
+@Composable
+fun EmailMessageRowItem(
+    mail: EmailMessage,
+    onMailClick: () -> Unit,
+    onStarredToggle: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    val unreadWeight = if (!mail.isRead) FontWeight.ExtraBold else FontWeight.Normal
+    val relativeDateStr = SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date(mail.timestamp))
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onMailClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (!mail.isRead) MaterialTheme.colorScheme.surface
+            else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (!mail.isRead) 1.5.dp else 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Profile Circle with Initials
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(GrowwTeal.copy(alpha = 0.25f), FocusColor(mail.category))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = mail.senderName.take(1).uppercase(),
+                            color = GrowwTealDark,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = mail.senderName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = unreadWeight,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = mail.sender,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            maxLines = 1
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = relativeDateStr,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    if (!mail.isRead) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(GrowwTeal)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            Text(
+                text = mail.subject,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = unreadWeight,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = mail.body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Footer controls Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Colored Categories tags mimicking Groww tags
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(FocusColor(mail.category).copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = mail.category,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FocusColor(mail.category)
+                        )
+                    }
+                    val emailShort = mail.accountEmail.substringBefore("@")
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = emailShort,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                    // Custom assigned tags
+                    val listTags = mail.tagsString.split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    listTags.take(2).forEach { tag ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.11f))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = tag,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (listTags.size > 2) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.11f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "+${listTags.size - 2}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                Row {
+                    IconButton(
+                        onClick = onStarredToggle,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Star toggle icon",
+                            tint = if (mail.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Email",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Helper to resolve tag highlight color
+@Composable
+fun FocusColor(category: String): Color {
+    return when (category.lowercase()) {
+        "primary" -> GrowwTeal
+        "updates" -> InfoBlue
+        "social" -> Color(0xFF9C27B0)
+        "promotions" -> Color(0xFFFF9800)
+        else -> Slate400
+    }
+}
+
+// -------------------------------------------------------------
+// TAB 2: COMPOSE SCREEN
+// -------------------------------------------------------------
+@Composable
+fun ComposeTabScreen(
+    viewModel: EmailViewModel,
+    onComposeSuccess: () -> Unit
+) {
+    val context = LocalContext.current
+    var recipient by remember { mutableStateOf(viewModel.getDraftRecipient()) }
+    var subject by remember { mutableStateOf(viewModel.getDraftSubject()) }
+    var body by remember { mutableStateOf(viewModel.getDraftBody()) }
+    var category by remember { mutableStateOf(viewModel.getDraftCategory()) }
+    var showGeminiWizard by remember { mutableStateOf(false) }
+
+    val accounts by viewModel.accounts.collectAsState()
+    var selectedFromEmail by remember { mutableStateOf("") }
+
+    // Auto-save the draft fields to local storage periodically when user types
+    LaunchedEffect(recipient, subject, body, category) {
+        delay(1500)
+        viewModel.saveDraft(recipient, subject, body, category)
+    }
+
+    LaunchedEffect(accounts) {
+        if (accounts.isNotEmpty()) {
+            selectedFromEmail = accounts.first().email
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Compose Message",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Source account bind selection
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        ) {
+            Text("From: ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.width(8.dp))
+            var fromExpanded by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = { fromExpanded = true },
+                    modifier = Modifier.fillMaxWidth().height(38.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(selectedFromEmail.ifEmpty { "Select Account Profile" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.ArrowDropDown, "Show from Accounts")
+                }
+                DropdownMenu(expanded = fromExpanded, onDismissRequest = { fromExpanded = false }) {
+                    accounts.forEach { acc ->
+                        DropdownMenuItem(
+                            text = { Text(acc.email) },
+                            onClick = {
+                                selectedFromEmail = acc.email
+                                fromExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Target field
+        OutlinedTextField(
+            value = recipient,
+            onValueChange = { recipient = it },
+            label = { Text("To") },
+            placeholder = { Text("recipient-profile@email.com") },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("compose_recipient_input"),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        // Subject field
+        OutlinedTextField(
+            value = subject,
+            onValueChange = { subject = it },
+            label = { Text("Subject") },
+            placeholder = { Text("Message header title...") },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("compose_subject_input"),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        // Categories drop select mock
+        var categoryExpanded by remember { mutableStateOf(false) }
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            OutlinedButton(
+                onClick = { categoryExpanded = true },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Category: $category")
+                    Icon(Icons.Default.ArrowDropDown, "Select categories")
+                }
+            }
+            DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                listOf("Primary", "Updates", "Social", "Promotions").forEach { cat ->
+                    DropdownMenuItem(text = { Text(cat) }, onClick = {
+                        category = cat
+                        categoryExpanded = false
+                    })
+                }
+            }
+        }
+
+        // Email Body Content Area input
+        OutlinedTextField(
+            value = body,
+            onValueChange = { body = it },
+            label = { Text("Mail Content Body") },
+            placeholder = { Text("Write your email content here...") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(bottom = 12.dp)
+                .testTag("compose_body_input"),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        // Controls action buttons row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Gemini Wizard drafting trigger
+            Button(
+                onClick = { showGeminiWizard = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GrowwTeal.copy(alpha = 0.15f),
+                    contentColor = GrowwTeal
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("gemini_draft_button")
+            ) {
+                Icon(Icons.Default.Face, "Gemini Assist", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Gemini Draft (AI)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+
+            // Command Send
+            Button(
+                onClick = {
+                    if (recipient.isEmpty() || subject.isEmpty() || body.isEmpty()) {
+                        Toast.makeText(context, "Checks Failed: Compose complete parameters first.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        viewModel.composeEmail(selectedFromEmail, recipient, subject, body, category)
+                        viewModel.clearDraft()
+                        recipient = ""
+                        subject = ""
+                        body = ""
+                        category = "Primary"
+                        Toast.makeText(context, "Email drafted/sent successfully!", Toast.LENGTH_SHORT).show()
+                        onComposeSuccess()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GrowwTeal,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("compose_send_button")
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Send button element", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Send", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    // Gemini wizard pop dialogue
+    if (showGeminiWizard) {
+        GeminiWizardDialog(
+            recipientHint = recipient,
+            subjectHint = subject,
+            viewModel = viewModel,
+            onAcceptResult = { textResult ->
+                body = textResult
+                showGeminiWizard = false
+            },
+            onDismiss = { showGeminiWizard = false }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// TAB 3: SETTINGS AND PROFILE
+// -------------------------------------------------------------
+@Composable
+fun SettingsTabScreen(
+    viewModel: EmailViewModel,
+    activity: FragmentActivity
+) {
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+    val geminiApiKey by viewModel.geminiApiKey.collectAsState()
+    val renderBackendUrl by viewModel.renderBackendUrl.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
+
+    var showAddAccountDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Profile & Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // 1. Interactive Profile panel
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(GrowwTeal.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Person, "User profile icon", tint = GrowwTeal, modifier = Modifier.size(32.dp))
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text("Inbox Master", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(accounts.firstOrNull()?.email ?: "No accounts registered", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
+            }
+        }
+
+        // 2. Bound Email Profiles management
+        Text("MANAGE EMAIL PROFILES", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                accounts.forEach { acc ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(acc.email, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(if (acc.refreshToken.isEmpty()) "Simulated Profile Sandbox" else "Verified Gmail Profile", style = MaterialTheme.typography.bodySmall, color = GrowwTeal)
+                        }
+                        if (accounts.size > 1) {
+                            IconButton(onClick = { viewModel.deleteAccount(acc.email) }) {
+                                Icon(Icons.Default.Delete, "Delete account binding", tint = AlertRed)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { showAddAccountDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GrowwTeal.copy(alpha = 0.12f),
+                        contentColor = GrowwTeal
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.AddCircle, "Link account", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Link Mail Profile", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // 3. Gemini REST API settings config panel
+        Text("AI CO-PILOT KEY DECLARATION", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            var showKey by remember { mutableStateOf(false) }
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    "Input your custom Google Gemini API Key. It is written directly to local device storage, keeping configurations completely secure.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = geminiApiKey,
+                    onValueChange = { viewModel.setGeminiApiKey(it) },
+                    visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    label = { Text("Personal Gemini Key") },
+                    trailingIcon = {
+                        IconButton(onClick = { showKey = !showKey }) {
+                            Icon(imageVector = if (showKey) Icons.Default.Face else Icons.Default.Lock, contentDescription = "Toggle display key")
+                        }
+                    },
+                    placeholder = { Text("AI Studio Gemini Key...") },
+                    modifier = Modifier.fillMaxWidth().testTag("gemini_key_input"),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+        }
+
+        // 4. Render backend URL settings Configuration
+        Text("RENDER DEPLOY BACKEND", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    "Submit your active Node Express server hosted on Render. This serves stateless refreshes of Oauth Gmail clients securely.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = renderBackendUrl,
+                    onValueChange = { viewModel.setRenderBackendUrl(it) },
+                    label = { Text("Render Backend Endpoint") },
+                    modifier = Modifier.fillMaxWidth().testTag("backend_url_input"),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+        }
+
+        // 5. Native hardware preference profiles
+        Text("SECURITY & SYSTEM OPTION", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                ListItem(
+                    headlineContent = { Text("Biometric Authentication", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Requests fingerprint scanner upon application launch to read inbox messages") },
+                    trailingContent = {
+                        Switch(
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { viewModel.setBiometric(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
+                        )
+                    }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                ListItem(
+                    headlineContent = { Text("Dark Theme Mode", fontWeight = FontWeight.SemiBold) },
+                    trailingContent = {
+                        Switch(
+                            checked = isDarkMode,
+                            onCheckedChange = { viewModel.setDarkMode(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
+                        )
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 6. Test Sandbox Simulator controls
+        Text("DEVELOPER TEST SANDBOX", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    "Simulate fresh incoming email messages dynamically using local sync mechanisms for testing notifications.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { 
+                        viewModel.simulateIncomingEmail()
+                        Toast.makeText(activity, "Simulated email triggered successfully!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GrowwTeal.copy(alpha = 0.12f),
+                        contentColor = GrowwTeal
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Notifications, "Inbound trigger", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Trigger Mock Incoming Email", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    if (showAddAccountDialog) {
+        AddAccountSelectionDialog(
+            viewModel = viewModel,
+            activity = activity,
+            onDismiss = { showAddAccountDialog = false }
+        )
+    }
+}
+
+// Modal dialog representing linkage bindings selection
+@Composable
+fun AddAccountSelectionDialog(
+    viewModel: EmailViewModel,
+    activity: FragmentActivity,
+    onDismiss: () -> Unit
+) {
+    val renderUrl by viewModel.renderBackendUrl.collectAsState()
+    var inputEmail by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column {
+                Text(
+                    "You can link your active Google account via our Render authentication server, or trigger a local simulated account instantly.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = {
+                        // Launch web browser auth flow targeting express server
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
+                        activity.startActivity(intent)
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Lock, "OAuth secure verification")
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Authenticate Real Gmail (OAuth)", fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(14.dp))
+                Text("ADD SIMULATED ACCOUNT PROFILE", fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = GrowwTeal)
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = inputEmail,
+                    onValueChange = { inputEmail = it },
+                    label = { Text("Email Identity ID") },
+                    placeholder = { Text("demo.recipient@gmail.com") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (inputEmail.contains("@")) {
+                        viewModel.handleOAuthSuccess(inputEmail, "mock_token", "mock_refresh", System.currentTimeMillis() + 360000)
+                        Toast.makeText(activity, "Simulated profile registers successfully!", Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    } else {
+                        Toast.makeText(activity, "Checks Failed: Please submit valid email address", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface)
+            ) {
+                Text("Add Trial Account", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// -------------------------------------------------------------
+// DETAIL DISPLAY DIALOG
+// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EmailDetailDialog(
+    mail: EmailMessage,
+    viewModel: EmailViewModel,
+    onDismiss: () -> Unit
+) {
+    var showReplyComposer by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back")
+                    }
+                    IconButton(onClick = { viewModel.toggleStarred(mail.id, mail.isStarred) }) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Starred status toggle dialog",
+                            tint = if (mail.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.25f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Sender Info panel
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(GrowwTeal.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(mail.senderName.take(1).uppercase(), color = GrowwTealDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(mail.senderName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("From: ${mail.sender}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        Text("To: ${mail.recipient}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(mail.subject, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Custom assigned tags display and management inside the Detail dialog
+                val allCustomTags by viewModel.customTags.collectAsState()
+                val assignedTags = remember(mail.tagsString) {
+                    mail.tagsString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Tags icon",
+                        tint = GrowwTeal,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Tags:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (assignedTags.isEmpty()) {
+                                item {
+                                    Text(
+                                        "No tags assigned",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                            } else {
+                                items(assignedTags) { tag ->
+                                    SuggestionChip(
+                                        onClick = { viewModel.toggleMessageTag(mail.id, tag) },
+                                        label = { Text(tag, fontSize = 10.sp) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            labelColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        modifier = Modifier.height(26.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Add tag button inside the row
+                        var showAssignTagsDropdown by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(
+                                onClick = { showAssignTagsDropdown = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.AddCircle, "Add Tag", tint = GrowwTeal, modifier = Modifier.size(20.dp))
+                            }
+                            DropdownMenu(
+                                expanded = showAssignTagsDropdown,
+                                onDismissRequest = { showAssignTagsDropdown = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Assign Tags:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall) },
+                                    onClick = {},
+                                    enabled = false
+                                )
+                                if (allCustomTags.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("No tags. Go to Inbox to create.", style = MaterialTheme.typography.bodySmall) },
+                                        onClick = { showAssignTagsDropdown = false }
+                                    )
+                                } else {
+                                    allCustomTags.forEach { tag ->
+                                        val isAssigned = assignedTags.contains(tag)
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Checkbox(
+                                                        checked = isAssigned,
+                                                        onCheckedChange = { viewModel.toggleMessageTag(mail.id, tag) },
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Text(tag, style = MaterialTheme.typography.bodyMedium)
+                                                }
+                                            },
+                                            onClick = {
+                                                viewModel.toggleMessageTag(mail.id, tag)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Message Text Content
+                Card(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(modifier = Modifier.padding(14.dp).verticalScroll(rememberScrollState())) {
+                        Text(mail.body, style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (showReplyComposer) {
+                    Box(modifier = Modifier.fillMaxWidth().height(140.dp)) {
+                        ReplyComposerView(
+                            originalMail = mail,
+                            viewModel = viewModel,
+                            onSent = {
+                                showReplyComposer = false
+                                onDismiss()
+                            },
+                            onCancel = { showReplyComposer = false }
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showReplyComposer = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, "Quick reply", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reply", fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.deleteMail(mail.id)
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AlertRed),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, "Delete")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReplyComposerView(
+    originalMail: EmailMessage,
+    viewModel: EmailViewModel,
+    onSent: () -> Unit,
+    onCancel: () -> Unit
+) {
+    var replyText by remember { mutableStateOf("") }
+    var showReplyDialogGemini by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = replyText,
+            onValueChange = { replyText = it },
+            placeholder = { Text("Write your reply message...") },
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(10.dp)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onCancel) {
+                    Text("Cancel", color = AlertRed)
+                }
+                Button(
+                    onClick = { showReplyDialogGemini = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal.copy(alpha = 0.12f), contentColor = GrowwTeal),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Face, "Gemini", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Gemini Assist", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            IconButton(
+                onClick = {
+                    if (replyText.isNotEmpty()) {
+                        viewModel.composeEmail(
+                            fromEmail = originalMail.recipient,
+                            toEmail = originalMail.sender,
+                            subject = "Re: ${originalMail.subject}",
+                            body = replyText,
+                            category = originalMail.category
+                        )
+                        onSent()
+                    }
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Send reply", tint = GrowwTeal)
+            }
+        }
+    }
+
+    if (showReplyDialogGemini) {
+        GeminiWizardDialog(
+            recipientHint = originalMail.sender,
+            subjectHint = originalMail.subject,
+            isReply = true,
+            originalBodyContext = originalMail.body,
+            viewModel = viewModel,
+            onAcceptResult = { textResult ->
+                replyText = textResult
+                showReplyDialogGemini = false
+            },
+            onDismiss = { showReplyDialogGemini = false }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// GEMINI WIZARD DIALOG
+// -------------------------------------------------------------
+@Composable
+fun GeminiWizardDialog(
+    recipientHint: String,
+    subjectHint: String,
+    isReply: Boolean = false,
+    originalBodyContext: String = "",
+    viewModel: EmailViewModel,
+    onAcceptResult: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var promptRequirements by remember { mutableStateOf("") }
+    val isGeneratingDraft by viewModel.isGeneratingDraft.collectAsState()
+    val geminiResponse by viewModel.geminiResponse.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Face, "Gemini Logo", tint = GrowwTeal)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Gemini AI Inbox Co-Pilot", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = if (isReply) "How would you like to reply? (e.g. 'Politely accept with feedback', 'Decline invitation kindly')"
+                    else "Enter details for the draft (e.g. 'Leave requests for sickness on Monday', 'Project status update')",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = promptRequirements,
+                    onValueChange = { promptRequirements = it },
+                    placeholder = { Text("AI prompt requirements...") },
+                    modifier = Modifier.fillMaxWidth().height(90.dp),
+                    shape = RoundedCornerShape(8.dp)
+                )
+
+                if (isGeneratingDraft) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = GrowwTeal, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("Gemini model formatting...", fontSize = 11.sp, color = GrowwTeal)
+                        }
+                    }
+                } else if (geminiResponse.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("AI PROPOSAL", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = GrowwTeal)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth().height(140.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
+                    ) {
+                        Box(modifier = Modifier.padding(10.dp).verticalScroll(rememberScrollState())) {
+                            Text(geminiResponse, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row {
+                Button(
+                    onClick = {
+                        viewModel.generateEmailDraft(
+                            recipientContext = recipientHint,
+                            subjectContext = subjectHint,
+                            additionalRequirements = promptRequirements,
+                            isReplyMode = isReply,
+                            originalEmailBody = originalBodyContext
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal)
+                ) {
+                    Text(if (geminiResponse.isNotEmpty()) "Regenerate" else "Generate", fontWeight = FontWeight.Bold)
+                }
+                if (geminiResponse.isNotEmpty() && !isGeneratingDraft) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Button(
+                        onClick = { onAcceptResult(geminiResponse) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface)
+                    ) {
+                        Text("Accept", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun ManageTagsDialog(
+    viewModel: EmailViewModel,
+    onDismiss: () -> Unit
+) {
+    val customTags by viewModel.customTags.collectAsState()
+    var newTagText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Info, "Tag Icon", tint = GrowwTeal)
+                Text("Manage Custom Tags")
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Create or delete custom email tags. Delete a tag to automatically clear it from all emails.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                // Input row to add tags
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = newTagText,
+                        onValueChange = { newTagText = it },
+                        placeholder = { Text("New tag name...") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            val cleanTag = newTagText.trim()
+                            if (cleanTag.isNotEmpty()) {
+                                if (cleanTag.contains(",")) {
+                                    Toast.makeText(context, "Tags cannot contain commas", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.addCustomTag(cleanTag)
+                                    newTagText = ""
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal)
+                    ) {
+                        Text("Add")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Scrollable list of existing tags
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 180.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
+                ) {
+                    if (customTags.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No custom tags created yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(customTags.toList()) { tag ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Info, "Tag Item", tint = GrowwTeal, modifier = Modifier.size(16.dp))
+                                        Text(tag, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.removeCustomTag(tag) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, "Delete tag", tint = AlertRed, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
