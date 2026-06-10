@@ -374,10 +374,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         toEmail: String,
         subject: String,
         body: String,
-        category: String = "Primary"
+        category: String = "Primary",
+        threadId: String? = null
     ) {
         viewModelScope.launch {
-            val success = repository.sendEmail(fromEmail, toEmail, subject, body)
+            val success = repository.sendEmail(fromEmail, toEmail, subject, body, threadId)
             if (success) {
                 val draftId = activeEditingDraftId.value
                 if (draftId != null) {

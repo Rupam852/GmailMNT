@@ -2638,12 +2638,24 @@ fun ReplyComposerView(
             IconButton(
                 onClick = {
                     if (replyText.isNotEmpty()) {
+                        val cleanSubject = if (originalMail.subject.startsWith("Re:", ignoreCase = true)) {
+                            originalMail.subject
+                        } else {
+                            "Re: ${originalMail.subject}"
+                        }
+
+                        val dateFormat = java.text.SimpleDateFormat("EEE, MMM d, yyyy 'at' h:mm a", java.util.Locale.US)
+                        val originalDateStr = dateFormat.format(java.util.Date(originalMail.timestamp))
+                        val quotedBody = originalMail.body.lineSequence().map { "> $it" }.joinToString("\n")
+                        val fullReplyBody = "$replyText\n\nOn $originalDateStr, ${originalMail.senderName} <${originalMail.sender}> wrote:\n$quotedBody"
+
                         viewModel.composeEmail(
                             fromEmail = originalMail.recipient,
                             toEmail = originalMail.sender,
-                            subject = "Re: ${originalMail.subject}",
-                            body = replyText,
-                            category = originalMail.category
+                            subject = cleanSubject,
+                            body = fullReplyBody,
+                            category = originalMail.category,
+                            threadId = originalMail.id
                         )
                         onSent()
                     }

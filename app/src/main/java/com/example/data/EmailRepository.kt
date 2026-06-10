@@ -555,7 +555,7 @@ class EmailRepository(private val context: Context) {
         }
     }
 
-    suspend fun sendEmail(fromEmail: String, toEmail: String, subject: String, body: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun sendEmail(fromEmail: String, toEmail: String, subject: String, body: String, threadId: String? = null): Boolean = withContext(Dispatchers.IO) {
         val account = dao.getAccountByEmail(fromEmail)
         
         // If it's a mock/simulated account (or no account exists), we treat it as successful mock send.
@@ -587,6 +587,9 @@ class EmailRepository(private val context: Context) {
 
         val jsonBody = JSONObject().apply {
             put("raw", base64Raw)
+            if (!threadId.isNullOrEmpty()) {
+                put("threadId", threadId)
+            }
         }.toString()
 
         val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
