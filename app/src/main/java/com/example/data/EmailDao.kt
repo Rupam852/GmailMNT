@@ -57,6 +57,12 @@ interface EmailDao {
     @Query("UPDATE email_messages SET label = :label WHERE id = :id")
     suspend fun updateMessageLabel(id: String, label: String)
 
+    @Query("DELETE FROM email_messages WHERE label = 'TRASH'")
+    suspend fun emptyTrash()
+
+    @Query("UPDATE email_messages SET label = 'INBOX' WHERE label = 'TRASH'")
+    suspend fun restoreAllTrash()
+
     @Query("""
         SELECT * FROM email_messages 
         WHERE (sender LIKE '%' || :query || '%' 

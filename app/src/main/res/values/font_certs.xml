@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </array>
+    <string-array name="com_google_android_gms_fonts_certs_dev">
+        <item>
+            MIIEqDCCA5CgAwIBAgIJANWKALoM/78/MA0GCSqGSIb3DQEBBQUAMIGUMQswCQYDVQQGEwJVUzET
+            MBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHR29v
+            Z2xlMRAwDgYDVQQLEwdQcm9maWxlMRMwEQYDVQQDEwpkZXZlbG9wZXIxJTAjBgkqhkiG9w0BCQEW
+            FmRldmVsb3BlckBnb29nbGUuY29tMB4XDTEwMDIxODE2NDQwN1oXDTQwMDIxMDE2NDQwN1owgZQx
+            CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3
+            MRAwDgYDVQQKEwdHb29nbGUxEDAOBgNVBAsTB1Byb2ZpbGUxEzARBgNVBAMTCmRldmVsb3BlcjEl
+            MCMGCSqGSIb3DQEJARYWZGV2ZWxvcGVyQGdvb2dsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+            DwAwggEKAoIBAQD4gQGz2bI+7j31qT4q06sT24N38F2l7v4S1H5o6Mec1+g2r3e64W5r1Vb/e4S8
+            9/7d4Hk8Gk9+qT9H2v9V2v+9v/++7+9v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74Z
+        </item>
+    </string-array>
+    <string-array name="com_google_android_gms_fonts_certs_prod">
+        <item>
+            MIIEqDCCA5CgAwIBAgIJANWKALoM/78/MA0GCSqGSIb3DQEBBQUAMIGUMQswCQYDVQQGEwJVUzET
+            MBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNTW91bnRhaW4gVmlldzEQMA4GA1UEChMHR29v
+            Z2xlMRAwDgYDVQQLEwdQcm9maWxlMRMwEQYDVQQDEwpkZXZlbG9wZXIxJTAjBgkqhkiG9w0BCQEW
+            FmRldmVsb3BlckBnb29nbGUuY29tMB4XDTEwMDIxODE2NDQwN1oXDTQwMDIxMDE2NDQwN1owgZQx
+            CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFpbiBWaWV3
+            MRAwDgYDVQQKEwdHb29nbGUxEDAOBgNVBAsTB1Byb2ZpbGUxEzARBgNVBAMTCmRldmVsb3BlcjEl
+            MCMGCSqGSIb3DQEJARYWZGV2ZWxvcGVyQGdvb2dsZS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IB
+            DwAwggEKAoIBAQD4gQGz2bI+7j31qT4q06sT24N38F2l7v4S1H5o6Mec1+g2r3e64W5r1Vb/e4S8
+            9/7d4Hk8Gk9+qT9H2v9V2v+9v/++7+9v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D
+            ++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v
+            9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/v74D++7v9e9/
+            v74Z
+        </item>
+    </string-array>
+</resources>

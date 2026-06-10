@@ -30,6 +30,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val selectedSortOrder = MutableStateFlow("Newest") // Newest, Oldest, Starred
     val selectedTag = MutableStateFlow<String?>("All") // "All" or a custom tag
     val customTags = MutableStateFlow<Set<String>>(preferences.customTags)
+    val selectedFolder = MutableStateFlow("INBOX") // INBOX, SENT, DRAFT, TRASH
+    val activeEditingDraftId = MutableStateFlow<String?>(null)
 
     // Accounts & Filtering Stream combines
     // Multi‑select state for bulk actions
@@ -46,6 +48,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     }
     val accounts: StateFlow<List<EmailAccount>> = repository.allAccounts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allMessages: Flow<List<EmailMessage>> = repository.allMessages
 
     private data class FilterState(
         val query: String,
@@ -68,9 +72,13 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val filteredMessages: StateFlow<List<EmailMessage>> = combine(
         filterStateFlow,
         selectedTag,
+        selectedFolder,
         repository.allMessages
-    ) { filter, tag, allMails ->
+    ) { filter, tag, folder, allMails ->
         var list = allMails
+
+        // 0. Filter by Folder
+        list = list.filter { it.label.uppercase() == folder.uppercase() }
 
         // 1. Filter by Account
         if (filter.accountEmail != null && filter.accountEmail != "All") {
@@ -78,7 +86,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // 2. Filter by Category
-        if (filter.category != "All") {
+        if (folder.uppercase() == "INBOX" && filter.category != "All") {
             list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
         }
 
@@ -206,25 +214,115 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     // Operations on email
     fun toggleStarred(id: String, currentStarred: Boolean) {
         viewModelScope.launch {
-            repository.updateMessageStarredStatus(id, !currentStarred)
+            val newStarred = !currentStarred
+            repository.updateMessageStarredStatus(id, newStarred)
+            val msg = repository.getMessageById(id)
+            if (msg != null && !msg.accountEmail.lowercase().contains("simulated")) {
+                val addLabels = if (newStarred) listOf("STARRED") else emptyList()
+                val removeLabels = if (newStarred) emptyList() else listOf("STARRED")
+                repository.modifyGmailLabels(msg.accountEmail, msg.id, addLabels, removeLabels)
+            }
         }
     }
 
     fun markAsRead(id: String, read: Boolean = true) {
         viewModelScope.launch {
             repository.updateMessageReadStatus(id, read)
+            val msg = repository.getMessageById(id)
+            if (msg != null && !msg.accountEmail.lowercase().contains("simulated")) {
+                val addLabels = if (read) emptyList() else listOf("UNREAD")
+                val removeLabels = if (read) listOf("UNREAD") else emptyList()
+                repository.modifyGmailLabels(msg.accountEmail, msg.id, addLabels, removeLabels)
+            }
         }
     }
 
     fun markAllAsRead(read: Boolean) {
         viewModelScope.launch {
             repository.markAllMessagesReadStatus(read)
+            val currentMessages = filteredMessages.value
+            currentMessages.forEach { msg ->
+                if (msg.isRead != read && !msg.accountEmail.lowercase().contains("simulated")) {
+                    launch {
+                        val addLabels = if (read) emptyList() else listOf("UNREAD")
+                        val removeLabels = if (read) listOf("UNREAD") else emptyList()
+                        repository.modifyGmailLabels(msg.accountEmail, msg.id, addLabels, removeLabels)
+                    }
+                }
+            }
         }
     }
 
     fun deleteMail(id: String) {
         viewModelScope.launch {
-            repository.deleteMessage(id)
+            val email = repository.getMessageById(id)
+            if (email != null) {
+                if (email.label.uppercase() == "TRASH") {
+                    repository.deleteMessage(id) // Permanently delete
+                } else {
+                    repository.updateMessageLabel(id, "TRASH") // Move to Trash
+                    if (!email.accountEmail.lowercase().contains("simulated")) {
+                        repository.modifyGmailLabels(email.accountEmail, email.id, listOf("TRASH"), listOf("INBOX"))
+                    }
+                }
+            }
+        }
+    }
+
+    fun restoreMailFromTrash(id: String) {
+        viewModelScope.launch {
+            repository.updateMessageLabel(id, "INBOX")
+            val email = repository.getMessageById(id)
+            if (email != null && !email.accountEmail.lowercase().contains("simulated")) {
+                repository.modifyGmailLabels(email.accountEmail, email.id, listOf("INBOX"), listOf("TRASH"))
+            }
+        }
+    }
+
+    fun emptyTrash() {
+        viewModelScope.launch {
+            repository.emptyTrash()
+        }
+    }
+
+    fun restoreAllTrash() {
+        viewModelScope.launch {
+            val trashMessages = filteredMessages.value.filter { it.label.uppercase() == "TRASH" }
+            repository.restoreAllTrash()
+            trashMessages.forEach { msg ->
+                if (!msg.accountEmail.lowercase().contains("simulated")) {
+                    launch {
+                        repository.modifyGmailLabels(msg.accountEmail, msg.id, listOf("INBOX"), listOf("TRASH"))
+                    }
+                }
+            }
+        }
+    }
+
+    fun saveDraftToDb(fromEmail: String, recipient: String, subject: String, body: String, category: String) {
+        viewModelScope.launch {
+            if (fromEmail.isBlank() && recipient.isBlank() && subject.isBlank() && body.isBlank()) {
+                return@launch
+            }
+            val draftId = activeEditingDraftId.value ?: "draft_${UUID.randomUUID()}"
+            if (activeEditingDraftId.value == null) {
+                activeEditingDraftId.value = draftId
+            }
+            val draftMsg = EmailMessage(
+                id = draftId,
+                accountEmail = fromEmail,
+                senderName = "Me",
+                sender = fromEmail,
+                recipient = recipient,
+                subject = subject,
+                body = body,
+                timestamp = System.currentTimeMillis(),
+                isRead = true,
+                isStarred = false,
+                label = "DRAFT",
+                category = category
+            )
+            repository.insertMessage(draftMsg)
         }
     }
 
@@ -250,6 +348,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val success = repository.sendEmail(fromEmail, toEmail, subject, body)
             if (success) {
+                val draftId = activeEditingDraftId.value
+                if (draftId != null) {
+                    repository.deleteMessage(draftId) // remove draft from db
+                    activeEditingDraftId.value = null
+                }
                 val sentMsg = EmailMessage(
                     id = "composed_${UUID.randomUUID()}",
                     accountEmail = fromEmail,

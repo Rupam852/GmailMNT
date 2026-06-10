@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -953,13 +955,6 @@ fun InboxTabScreen(
                     )
                 }
             }
-
-            IconButton(
-                onClick = { viewModel.triggerSyncAll() },
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(Icons.Default.Refresh, "Refresh Mail Sync", tint = GrowwTeal, modifier = Modifier.size(18.dp))
-            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -1007,7 +1002,7 @@ fun InboxTabScreen(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                     )
                     Text(
-                        text = "Tap the bell icon above to simulate incoming mail or trigger a refresh.",
+                        text = "Tap the bell icon above to simulate incoming mail or wait for auto-sync.",
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),

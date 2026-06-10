@@ -57,6 +57,10 @@ class EmailRepository(private val context: Context) {
         dao.updateMessage(message)
     }
 
+    suspend fun getMessageById(id: String): EmailMessage? = withContext(Dispatchers.IO) {
+        dao.getMessageById(id)
+    }
+
     suspend fun updateMessageReadStatus(id: String, isRead: Boolean) = withContext(Dispatchers.IO) {
         dao.updateMessageReadStatus(id, isRead)
     }
@@ -71,6 +75,18 @@ class EmailRepository(private val context: Context) {
 
     suspend fun deleteMessage(id: String) = withContext(Dispatchers.IO) {
         dao.deleteMessageById(id)
+    }
+
+    suspend fun updateMessageLabel(id: String, label: String) = withContext(Dispatchers.IO) {
+        dao.updateMessageLabel(id, label)
+    }
+
+    suspend fun emptyTrash() = withContext(Dispatchers.IO) {
+        dao.emptyTrash()
+    }
+
+    suspend fun restoreAllTrash() = withContext(Dispatchers.IO) {
+        dao.restoreAllTrash()
     }
 
     suspend fun insertMessage(message: EmailMessage) = withContext(Dispatchers.IO) {
@@ -249,11 +265,33 @@ class EmailRepository(private val context: Context) {
             }
         }
         
-        val newMessages = mockMessages.filter { msg ->
+        val mergedMessages = mockMessages.map { msg ->
+            val existing = dao.getMessageById(msg.id)
+            if (existing != null) {
+                val isMock = msg.id.startsWith("msg_") || msg.id == "real_msg_fallback_1" || msg.accountEmail.lowercase().contains("simulated")
+                if (isMock) {
+                    msg.copy(
+                        isRead = existing.isRead,
+                        isStarred = existing.isStarred,
+                        label = existing.label,
+                        category = existing.category,
+                        tagsString = existing.tagsString
+                    )
+                } else {
+                    msg.copy(
+                        tagsString = existing.tagsString
+                    )
+                }
+            } else {
+                msg
+            }
+        }
+
+        val newMessages = mergedMessages.filter { msg ->
             dao.getMessageById(msg.id) == null
         }
         
-        dao.insertMessages(mockMessages)
+        dao.insertMessages(mergedMessages)
 
         newMessages.forEach { msg ->
             if (!msg.isRead) {
@@ -313,6 +351,28 @@ class EmailRepository(private val context: Context) {
                     val plainBody = extractMessageBody(payload).takeIf { it.isNotEmpty() } ?: snippet
                     val htmlBody = extractHtmlBody(payload)
 
+                    val labelIdsArray = json.optJSONArray("labelIds")
+                    var isRead = true
+                    var isStarred = false
+                    var label = "INBOX"
+                    
+                    if (labelIdsArray != null) {
+                        val labels = (0 until labelIdsArray.length()).map { labelIdsArray.getString(it) }
+                        if (labels.contains("UNREAD")) {
+                            isRead = false
+                        }
+                        if (labels.contains("STARRED")) {
+                            isStarred = true
+                        }
+                        if (labels.contains("SENT")) {
+                            label = "SENT"
+                        } else if (labels.contains("TRASH")) {
+                            label = "TRASH"
+                        } else if (labels.contains("DRAFT")) {
+                            label = "DRAFT"
+                        }
+                    }
+
                     return EmailMessage(
                         id = msgId,
                         accountEmail = accountEmail,
@@ -322,6 +382,9 @@ class EmailRepository(private val context: Context) {
                         subject = subject,
                         body = plainBody,
                         timestamp = internalDate,
+                        isRead = isRead,
+                        isStarred = isStarred,
+                        label = label,
                         category = "Primary",
                         htmlBody = htmlBody
                     )
@@ -518,6 +581,67 @@ class EmailRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e("EmailRepository", "Exception in sendEmail", e)
+            false
+        }
+    }
+
+    /**
+     * Modify labels of a message in Gmail API to sync read/unread, starred/unstarred, or deletion status.
+     */
+    suspend fun modifyGmailLabels(
+        accountEmail: String,
+        msgId: String,
+        addLabels: List<String>,
+        removeLabels: List<String>
+    ): Boolean = withContext(Dispatchers.IO) {
+        val account = dao.getAccountByEmail(accountEmail) ?: return@withContext false
+        if (account.email.lowercase().contains("simulated")) {
+            return@withContext true
+        }
+
+        val pref = PreferenceManager(context)
+        val backendUrl = pref.renderBackendUrl
+        if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+            refreshAccessToken(accountEmail, backendUrl)
+        }
+
+        val updatedAccount = dao.getAccountByEmail(accountEmail) ?: return@withContext false
+
+        val json = JSONObject().apply {
+            put("addLabelIds", org.json.JSONArray(addLabels))
+            put("removeLabelIds", org.json.JSONArray(removeLabels))
+        }
+
+        val requestBody = json.toString().toRequestBody("application/json".toMediaType())
+        val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/$msgId/modify"
+        var request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer ${updatedAccount.accessToken}")
+            .post(requestBody)
+            .build()
+
+        try {
+            var response = okHttpClient.newCall(request).execute()
+            if (response.code == 401) {
+                response.close()
+                val refreshed = refreshAccessToken(accountEmail, backendUrl)
+                if (refreshed) {
+                    val freshAccount = dao.getAccountByEmail(accountEmail)
+                    if (freshAccount != null) {
+                        request = Request.Builder()
+                            .url(url)
+                            .header("Authorization", "Bearer ${freshAccount.accessToken}")
+                            .post(requestBody)
+                            .build()
+                        response = okHttpClient.newCall(request).execute()
+                    }
+                }
+            }
+            response.use { resp ->
+                resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error modifying labels for $msgId", e)
             false
         }
     }
