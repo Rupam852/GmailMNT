@@ -1241,7 +1241,7 @@ fun FocusColor(category: String): Color {
     return when (category.lowercase()) {
         "primary" -> GrowwTeal
         "updates" -> InfoBlue
-        "social" -> Color(0xFF9C27B0)
+        "social" -> Color(0xFF1B60A5)
         "promotions" -> Color(0xFFFF9800)
         else -> Slate400
     }
