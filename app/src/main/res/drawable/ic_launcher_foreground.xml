@@ -4,32 +4,30 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Email Structure (Envelope) -->
-    <!-- Centering a 50dp x 36dp envelope neatly inside the 108dp safe canvas -->
-    <path
-        android:fillColor="#E6E1E5"
-        android:pathData="M31,38h46c2.8,0 5,2.2 5,5v26c0,2.8 -2.2,5 -5,5H31c-2.8,0 -5,-2.2 -5,-5V43c0,-2.8 2.2,-5 5,-5z" />
     
-    <!-- Outer line detailing for high-contrast visibility -->
+    <!-- Clean Minimalist Hollow Envelope Outline -->
     <path
-        android:strokeColor="#0A1931"
-        android:strokeWidth="1.8"
-        android:pathData="M31,38h46c2.8,0 5,2.2 5,5v26c0,2.8 -2.2,5 -5,5H31c-2.8,0 -5,-2.2 -5,-5V43c0,-2.8 2.2,-5 5,-5z" />
-
-    <!-- Open V fold of email envelope -->
-    <path
-        android:fillColor="#0A1931"
-        android:pathData="M31,39L54,55L77,39Z" />
-
-    <!-- Extra envelope detail vectors -->
-    <path
-        android:strokeColor="#0A1931"
-        android:strokeWidth="1.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
         android:strokeLineCap="round"
-        android:pathData="M27,69L46,53.5 M81,69L62,53.5" />
+        android:strokeLineJoin="round"
+        android:pathData="M34,36 h40 c3.3,0 6,2.7 6,6 v24 c0,3.3 -2.7,6 -6,6 h-40 c-3.3,0 -6,-2.7 -6,-6 v-24 c0,-3.3 2.7,-6 6,-6 z" />
 
-    <!-- Smart copilot Gemini Purple Spark on the seal -->
+    <!-- Open V fold line details -->
     <path
-        android:fillColor="#D0BCFF"
-        android:pathData="M54,49 C54,49 55,46 57,45 C55,44 54,41 54,41 C54,41 53,44 51,45 C53,46 54,49 54,49 Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M29,38 L54,54 L79,38" />
+
+    <!-- Primary Gemini AI Sparkle (Top-Right) -->
+    <path
+        android:fillColor="#8AB4F8"
+        android:pathData="M78,24 C78,24 79,29 83,30 C79,31 78,36 78,36 C78,36 77,31 73,30 C77,29 78,24 78,24 Z" />
+
+    <!-- Secondary Small Gemini AI Sparkle (Top-Right-Offset) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,18 C70,18 70.7,21.5 73.5,22.2 C70.7,22.9 70,26.4 70,26.4 C70,26.4 69.3,22.9 66.5,22.2 C69.3,21.5 70,18 70,18 Z" />
 </vector>
