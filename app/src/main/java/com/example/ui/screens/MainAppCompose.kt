@@ -1272,6 +1272,7 @@ fun EmailMessageRowItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .combinedClickable(
                 onClick = onMailClick,
                 onLongClick = onMailLongClick
