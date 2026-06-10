@@ -228,6 +228,12 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun restoreMail(message: EmailMessage) {
+        viewModelScope.launch {
+            repository.insertMessage(message)
+        }
+    }
+
     fun deleteAccount(email: String) {
         viewModelScope.launch {
             repository.deleteAccount(email)

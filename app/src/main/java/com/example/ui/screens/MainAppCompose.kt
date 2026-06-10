@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,6 +55,7 @@ import com.example.ui.theme.GrowwTealDark
 import com.example.util.BiometricHelper
 import com.example.util.AvatarHelper
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -418,64 +420,191 @@ fun DashboardScreen(
 
     var showManageTagsDialogSide by remember { mutableStateOf(false) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val onDeleteMail: (EmailMessage) -> Unit = { mail ->
+        viewModel.deleteMail(mail.id)
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "Email deleted",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.restoreMail(mail)
+            }
+        }
+    }
+
     if (isWideScreen) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // Left Custom Sidebar for Folder and Custom Tag Navigation
-            Column(
-                modifier = Modifier
-                    .width(240.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // Left Custom Sidebar for Folder and Custom Tag Navigation
+                Column(
+                    modifier = Modifier
+                        .width(240.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp)
                 ) {
-                    Text(
-                        text = "GmailMNT",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = GrowwTeal
-                    )
-                    IconButton(
-                        onClick = { viewModel.setDarkMode(!isDarkMode) },
-                        modifier = Modifier.size(32.dp).testTag("sidebar_theme_toggle")
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(if (isDarkMode) "☀️" else "🌙", fontSize = 16.sp)
+                        Text(
+                            text = "GmailMNT",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = GrowwTeal
+                        )
+                        IconButton(
+                            onClick = { viewModel.setDarkMode(!isDarkMode) },
+                            modifier = Modifier.size(32.dp).testTag("sidebar_theme_toggle")
+                        ) {
+                            Text(if (isDarkMode) "☀️" else "🌙", fontSize = 16.sp)
+                        }
                     }
-                }
 
-                Text(
-                    text = "FOLDERS",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+                    Text(
+                        text = "FOLDERS",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
 
-                // Render standard email folders (represented by Categories / Labels)
-                val folders = listOf(
-                    "Inbox (All)" to "All",
-                    "Primary" to "Primary",
-                    "Updates" to "Updates",
-                    "Social" to "Social",
-                    "Promotions" to "Promotions"
-                )
+                    // Render standard email folders (represented by Categories / Labels)
+                    val folders = listOf(
+                        "Inbox (All)" to "All",
+                        "Primary" to "Primary",
+                        "Updates" to "Updates",
+                        "Social" to "Social",
+                        "Promotions" to "Promotions"
+                    )
 
-                folders.forEach { (name, label) ->
-                    val isFolderSelected = (selectedTab == 0 && selectedCategory == label && selectedTag == "All")
+                    folders.forEach { (name, label) ->
+                        val isFolderSelected = (selectedTab == 0 && selectedCategory == label && selectedTag == "All")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isFolderSelected) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable {
+                                    selectedTab = 0
+                                    viewModel.selectedCategory.value = label
+                                    viewModel.selectedTag.value = "All"
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Email,
+                                    contentDescription = name,
+                                    tint = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isFolderSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "TAGS",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
+                    // Render Custom Tag Items in the folders/navigation sidebar
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(customTagsList.toList()) { tag ->
+                            val isTagSelected = (selectedTab == 0 && selectedTag == tag)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isTagSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                                    .clickable {
+                                        selectedTab = 0
+                                        viewModel.selectedTag.value = tag
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = tag,
+                                        tint = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = tag,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isTagSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showManageTagsDialogSide = true }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Manage",
+                                        tint = GrowwTeal,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Manage Tags",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = GrowwTeal,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
+
+                    // Actions items inside dynamic menu
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isFolderSelected) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
-                            .clickable {
-                                selectedTab = 0
-                                viewModel.selectedCategory.value = label
-                                viewModel.selectedTag.value = "All"
-                            }
+                            .background(if (selectedTab == 1) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                            .clickable { selectedTab = 1 }
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Row(
@@ -483,181 +612,84 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = name,
-                                tint = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Compose",
+                                tint = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = name,
+                                text = "Compose Mail",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isFolderSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (selectedTab == 2) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
+                            .clickable { selectedTab = 2 }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Settings",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "TAGS",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(vertical = 4.dp)
+                // Divider Line between Sidebar and Main Feed panel
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                 )
 
-                // Render Custom Tag Items in the folders/navigation sidebar
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(customTagsList.toList()) { tag ->
-                        val isTagSelected = (selectedTab == 0 && selectedTag == tag)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isTagSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
-                                .clickable {
-                                    selectedTab = 0
-                                    viewModel.selectedTag.value = tag
-                                }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = tag,
-                                    tint = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = tag,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isTagSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isTagSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showManageTagsDialogSide = true }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Manage",
-                                    tint = GrowwTeal,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "Manage Tags",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = GrowwTeal,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 12.dp))
-
-                // Actions items inside dynamic menu
+                // Right side Main Viewing Area panel (responsive content pane)
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selectedTab == 1) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
-                        .clickable { selectedTab = 1 }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .weight(1f)
+                        .fillMaxHeight()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Compose",
-                            tint = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
+                    when (selectedTab) {
+                        0 -> InboxTabScreen(
+                            viewModel = viewModel,
+                            onMailClick = { msgId ->
+                                viewModel.selectMailId(msgId)
+                                showDetailDialog = true
+                            },
+                            onDeleteMail = onDeleteMail
                         )
-                        Text(
-                            text = "Compose Mail",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTab == 1) GrowwTeal else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selectedTab == 2) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
-                        .clickable { selectedTab = 2 }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Settings",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTab == 2) GrowwTeal else MaterialTheme.colorScheme.onSurface
-                        )
+                        1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                            selectedTab = 0
+                        })
+                        2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
                     }
                 }
             }
-
-            // Divider Line between Sidebar and Main Feed panel
-            Box(
+            SnackbarHost(
+                hostState = snackbarHostState,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .width(1.dp)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
             )
-
-            // Right side Main Viewing Area panel (responsive content pane)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            ) {
-                when (selectedTab) {
-                    0 -> InboxTabScreen(viewModel = viewModel, onMailClick = { msgId ->
-                        viewModel.selectMailId(msgId)
-                        showDetailDialog = true
-                    })
-                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                        selectedTab = 0
-                    })
-                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
-                }
-            }
         }
     } else {
         // Mobile compact standard dashboard (Bottom navigation layout)
@@ -701,14 +733,19 @@ fun DashboardScreen(
                         )
                     )
                 }
-            }
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (selectedTab) {
-                    0 -> InboxTabScreen(viewModel = viewModel, onMailClick = { msgId ->
-                        viewModel.selectMailId(msgId)
-                        showDetailDialog = true
-                    })
+                    0 -> InboxTabScreen(
+                        viewModel = viewModel,
+                        onMailClick = { msgId ->
+                            viewModel.selectMailId(msgId)
+                            showDetailDialog = true
+                        },
+                        onDeleteMail = onDeleteMail
+                    )
                     1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
                         selectedTab = 0
                     })
@@ -730,6 +767,7 @@ fun DashboardScreen(
         EmailDetailDialog(
             mail = activeSelectedMail!!,
             viewModel = viewModel,
+            onDeleteMail = onDeleteMail,
             onDismiss = {
                 showDetailDialog = false
                 viewModel.selectMailId(null)
@@ -744,10 +782,12 @@ fun DashboardScreen(
 // -------------------------------------------------------------
 // TAB 1: INBOX SCREEN
 // -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxTabScreen(
     viewModel: EmailViewModel,
-    onMailClick: (String) -> Unit
+    onMailClick: (String) -> Unit,
+    onDeleteMail: (EmailMessage) -> Unit
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
@@ -981,14 +1021,48 @@ fun InboxTabScreen(
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 items(filteredMessages, key = { it.id }) { mail ->
-                    EmailMessageRowItem(
-                        mail = mail,
-                        accounts = accounts,
-                        onMailClick = { onMailClick(mail.id) },
-                        onMailLongClick = { longPressedMail = mail },
-                        onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) },
-                        onDeleteClick = { viewModel.deleteMail(mail.id) }
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                onDeleteMail(mail)
+                                true
+                            } else {
+                                false
+                            }
+                        }
                     )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        enableDismissFromEndToStart = true,
+                        backgroundContent = {
+                            val color = when (dismissState.dismissDirection) {
+                                SwipeToDismissBoxValue.EndToStart -> AlertRed
+                                else -> Color.Transparent
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(color)
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Icon",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    ) {
+                        EmailMessageRowItem(
+                            mail = mail,
+                            accounts = accounts,
+                            onMailClick = { onMailClick(mail.id) },
+                            onMailLongClick = { longPressedMail = mail },
+                            onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) }
+                        )
+                    }
                 }
             }
         }
@@ -1053,7 +1127,7 @@ fun InboxTabScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    viewModel.deleteMail(mail.id)
+                                    onDeleteMail(mail)
                                     longPressedMail = null
                                 }
                                 .padding(vertical = 12.dp, horizontal = 8.dp),
@@ -1187,8 +1261,7 @@ fun EmailMessageRowItem(
     accounts: List<EmailAccount>,
     onMailClick: () -> Unit,
     onMailLongClick: () -> Unit,
-    onStarredToggle: () -> Unit,
-    onDeleteClick: () -> Unit
+    onStarredToggle: () -> Unit
 ) {
     val unreadWeight = if (!mail.isRead) FontWeight.ExtraBold else FontWeight.Normal
     val unreadColor = if (!mail.isRead) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
@@ -1332,7 +1405,7 @@ fun EmailMessageRowItem(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Bottom Row: Body snippet and Delete
+                // Bottom Row: Body snippet
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1346,17 +1419,6 @@ fun EmailMessageRowItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(
-                        onClick = onDeleteClick,
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete Email",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
                 }
             }
         }
@@ -1938,6 +2000,7 @@ fun AddAccountSelectionDialog(
 fun EmailDetailDialog(
     mail: EmailMessage,
     viewModel: EmailViewModel,
+    onDeleteMail: (EmailMessage) -> Unit,
     onDismiss: () -> Unit,
     onForward: () -> Unit
 ) {
@@ -2106,19 +2169,23 @@ fun EmailDetailDialog(
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = { showReplyComposer = true },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GrowwTeal,
+                                contentColor = Color.White
+                            ),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Edit, "Quick reply", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Reply", fontWeight = FontWeight.Bold)
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 val fwdSubject = "Fwd: ${mail.subject}"
                                 val formattedDate = SimpleDateFormat("EEE, MMM d, yyyy 'at' h:mm a", Locale.getDefault()).format(Date(mail.timestamp))
@@ -2139,9 +2206,9 @@ fun EmailDetailDialog(
                                 onDismiss()
                             },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            border = BorderStroke(1.5.dp, GrowwTeal),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = GrowwTeal
                             ),
                             shape = RoundedCornerShape(10.dp)
                         ) {
@@ -2151,17 +2218,20 @@ fun EmailDetailDialog(
                         }
                         Button(
                             onClick = {
-                                viewModel.deleteMail(mail.id)
+                                onDeleteMail(mail)
                                 onDismiss()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = AlertRed),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFD32F2F),
+                                contentColor = Color.White
+                            ),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Delete, "Delete")
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(56.dp))
             }
         }
     }
