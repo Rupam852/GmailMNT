@@ -48,6 +48,9 @@ interface EmailDao {
     @Query("UPDATE email_messages SET isRead = :isRead WHERE id = :id")
     suspend fun updateMessageReadStatus(id: String, isRead: Boolean)
 
+    @Query("UPDATE email_messages SET isRead = :isRead")
+    suspend fun updateAllMessagesReadStatus(isRead: Boolean)
+
     @Query("UPDATE email_messages SET isStarred = :isStarred WHERE id = :id")
     suspend fun updateMessageStarredStatus(id: String, isStarred: Boolean)
 

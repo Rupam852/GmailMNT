@@ -216,6 +216,12 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun markAllAsRead(read: Boolean) {
+        viewModelScope.launch {
+            repository.markAllMessagesReadStatus(read)
+        }
+    }
+
     fun deleteMail(id: String) {
         viewModelScope.launch {
             repository.deleteMessage(id)

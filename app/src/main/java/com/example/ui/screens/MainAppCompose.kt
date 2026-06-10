@@ -8,6 +8,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -757,6 +759,8 @@ fun InboxTabScreen(
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
 
+    var longPressedMail by remember { mutableStateOf<EmailMessage?>(null) }
+
     val categories = listOf("All", "Primary", "Updates", "Social", "Promotions")
     val sorts = listOf("Newest", "Oldest", "Starred")
 
@@ -979,11 +983,103 @@ fun InboxTabScreen(
                     EmailMessageRowItem(
                         mail = mail,
                         onMailClick = { onMailClick(mail.id) },
+                        onMailLongClick = { longPressedMail = mail },
                         onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) },
                         onDeleteClick = { viewModel.deleteMail(mail.id) }
                     )
                 }
             }
+        }
+
+        if (longPressedMail != null) {
+            val mail = longPressedMail!!
+            AlertDialog(
+                onDismissRequest = { longPressedMail = null },
+                title = { Text("Options", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = mail.senderName,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = mail.subject,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), modifier = Modifier.padding(bottom = 8.dp))
+
+                        // Option: Mark as Read / Unread
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    viewModel.markAsRead(mail.id, !mail.isRead)
+                                    longPressedMail = null
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (mail.isRead) Icons.Default.MailOutline else Icons.Default.Email,
+                                contentDescription = "Read Status Icon",
+                                tint = GrowwTeal,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (mail.isRead) "Mark as Unread" else "Mark as Read",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        // Option: Delete
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    viewModel.deleteMail(mail.id)
+                                    longPressedMail = null
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Icon",
+                                tint = AlertRed,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Delete",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = AlertRed
+                            )
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { longPressedMail = null }) {
+                        Text("Close")
+                    }
+                }
+            )
         }
     }
 }
@@ -1082,10 +1178,12 @@ fun EmailSkeletonRowItem(alpha: Float) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EmailMessageRowItem(
     mail: EmailMessage,
     onMailClick: () -> Unit,
+    onMailLongClick: () -> Unit,
     onStarredToggle: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -1096,7 +1194,10 @@ fun EmailMessageRowItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onMailClick() }
+            .combinedClickable(
+                onClick = onMailClick,
+                onLongClick = onMailLongClick
+            )
             .background(if (!mail.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) else Color.Transparent)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
@@ -1686,6 +1787,35 @@ fun SettingsTabScreen(
                         )
                     }
                 )
+            }
+        }
+
+        Text("BULK ACTIONS", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp, top = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.markAllAsRead(true) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Read All", fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { viewModel.markAllAsRead(false) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), contentColor = MaterialTheme.colorScheme.onSurface),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Unread All", fontWeight = FontWeight.Bold)
+                }
             }
         }
 

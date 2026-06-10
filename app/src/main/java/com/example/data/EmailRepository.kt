@@ -61,6 +61,10 @@ class EmailRepository(private val context: Context) {
         dao.updateMessageReadStatus(id, isRead)
     }
 
+    suspend fun markAllMessagesReadStatus(isRead: Boolean) = withContext(Dispatchers.IO) {
+        dao.updateAllMessagesReadStatus(isRead)
+    }
+
     suspend fun updateMessageStarredStatus(id: String, isStarred: Boolean) = withContext(Dispatchers.IO) {
         dao.updateMessageStarredStatus(id, isStarred)
     }
