@@ -177,31 +177,50 @@ class EmailRepository(private val context: Context) {
             val list = mutableListOf<EmailMessage>()
             try {
                 val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25"
-                val request = Request.Builder()
+                var request = Request.Builder()
                     .url(url)
                     .header("Authorization", "Bearer ${account.accessToken}")
                     .build()
 
-                okHttpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val stringRes = response.body?.string() ?: ""
+                var response = okHttpClient.newCall(request).execute()
+                if (response.code == 401) {
+                    response.close()
+                    Log.w("EmailRepository", "401 Unauthorized syncing emails. Refreshing token...")
+                    val pref = PreferenceManager(context)
+                    val backendUrl = pref.renderBackendUrl
+                    val refreshed = refreshAccessToken(accountEmail, backendUrl)
+                    if (refreshed) {
+                        val freshAccount = dao.getAccountByEmail(accountEmail)
+                        if (freshAccount != null) {
+                            request = Request.Builder()
+                                .url(url)
+                                .header("Authorization", "Bearer ${freshAccount.accessToken}")
+                                .build()
+                            response = okHttpClient.newCall(request).execute()
+                        }
+                    }
+                }
+
+                response.use { resp ->
+                    if (resp.isSuccessful) {
+                        val stringRes = resp.body?.string() ?: ""
                         val messagesArray = JSONObject(stringRes).optJSONArray("messages")
                         if (messagesArray != null) {
+                            val activeToken = dao.getAccountByEmail(accountEmail)?.accessToken ?: account.accessToken
                             val detailsList = kotlinx.coroutines.coroutineScope {
                                 (0 until messagesArray.length()).map { index ->
                                     val msgObj = messagesArray.getJSONObject(index)
                                     val msgId = msgObj.getString("id")
                                     async {
-                                        fetchGmailDetails(msgId, account.accessToken, accountEmail)
+                                        fetchGmailDetails(msgId, activeToken, accountEmail)
                                     }
                                 }.awaitAll()
                             }
                             detailsList.filterNotNull().forEach { list.add(it) }
                         }
-                    } else if (response.code == 401) {
-                        // Attempt token refresh and try once
-                        Log.w("EmailRepository", "401 Unauthenticated. Attempting token refresh...")
-                        // Fallback to mock so we represent offline availability flawlessly
+                    } else {
+                        val errBody = resp.body?.string() ?: ""
+                        Log.e("EmailRepository", "Gmail sync list failed: ${resp.code} - $errBody")
                     }
                 }
             } catch (e: Exception) {
@@ -462,20 +481,38 @@ class EmailRepository(private val context: Context) {
         }.toString()
 
         val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
-        val request = Request.Builder()
+        var request = Request.Builder()
             .url("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
             .header("Authorization", "Bearer ${updatedAccount.accessToken}")
             .post(requestBody)
             .build()
 
         try {
-            okHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
+            var response = okHttpClient.newCall(request).execute()
+            if (response.code == 401) {
+                response.close()
+                Log.w("EmailRepository", "401 Unauthorized sending email. Refreshing token...")
+                val refreshed = refreshAccessToken(fromEmail, backendUrl)
+                if (refreshed) {
+                    val freshAccount = dao.getAccountByEmail(fromEmail)
+                    if (freshAccount != null) {
+                        request = Request.Builder()
+                            .url("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+                            .header("Authorization", "Bearer ${freshAccount.accessToken}")
+                            .post(requestBody)
+                            .build()
+                        response = okHttpClient.newCall(request).execute()
+                    }
+                }
+            }
+
+            response.use { resp ->
+                if (resp.isSuccessful) {
                     Log.d("EmailRepository", "Gmail sent successfully via OAuth API.")
                     true
                 } else {
-                    val errBody = response.body?.string() ?: ""
-                    Log.e("EmailRepository", "Gmail send failed: ${response.code} - $errBody")
+                    val errBody = resp.body?.string() ?: ""
+                    Log.e("EmailRepository", "Gmail send failed: ${resp.code} - $errBody")
                     false
                 }
             }
