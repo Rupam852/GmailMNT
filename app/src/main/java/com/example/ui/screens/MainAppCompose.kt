@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -1713,18 +1714,19 @@ fun EmailDetailDialog(
 ) {
     var showReplyComposer by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
             ) {
                 // Header row
                 Row(
@@ -1777,17 +1779,20 @@ fun EmailDetailDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-
-
                 // Message Text Content
-                Card(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 8.dp)
                 ) {
-                    Box(modifier = Modifier.padding(14.dp).verticalScroll(rememberScrollState())) {
-                        Text(mail.body, style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
-                    }
+                    Text(
+                        mail.body, 
+                        style = MaterialTheme.typography.bodyMedium, 
+                        lineHeight = 22.sp, 
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
