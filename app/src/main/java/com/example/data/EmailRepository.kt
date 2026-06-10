@@ -412,6 +412,10 @@ class EmailRepository(private val context: Context) {
                             category = "Social"
                         } else if (labels.contains("CATEGORY_PROMOTIONS")) {
                             category = "Promotions"
+                        } else if (labels.contains("CATEGORY_FORUMS")) {
+                            category = "Forums"
+                        } else if (labels.contains("CATEGORY_PERSONAL")) {
+                            category = "Primary"
                         }
                     }
 

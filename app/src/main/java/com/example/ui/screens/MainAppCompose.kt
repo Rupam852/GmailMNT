@@ -567,6 +567,48 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
+                        text = "CATEGORIES",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
+                    val categoriesList = listOf(
+                        "Primary" to "Primary",
+                        "Updates" to "Updates",
+                        "Social" to "Social",
+                        "Promotions" to "Promotions",
+                        "Forums" to "Forums"
+                    )
+
+                    categoriesList.forEach { (name, catCode) ->
+                        val isCatSelected = (selectedTab == 0 && selectedFolder.uppercase() == "INBOX" && selectedCategory == catCode && selectedTag == "All")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isCatSelected) GrowwTeal.copy(alpha = 0.08f) else Color.Transparent)
+                                .clickable {
+                                    selectedTab = 0
+                                    viewModel.selectedFolder.value = "INBOX"
+                                    viewModel.selectedCategory.value = catCode
+                                    viewModel.selectedTag.value = "All"
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isCatSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
                         text = "TAGS",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
@@ -946,6 +988,44 @@ fun InboxTabScreen(
                                 onClick = {
                                     viewModel.selectedFolder.value = code
                                     viewModel.selectedCategory.value = "All"
+                                    viewModel.selectedTag.value = "All"
+                                    showMenu = false
+                                }
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        Text(
+                            text = "CATEGORIES",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+
+                        val categoriesList = listOf(
+                            "Primary" to "Primary",
+                            "Updates" to "Updates",
+                            "Social" to "Social",
+                            "Promotions" to "Promotions",
+                            "Forums" to "Forums"
+                        )
+
+                        categoriesList.forEach { (name, catCode) ->
+                            val isCatSelected = (selectedFolder.uppercase() == "INBOX" && selectedCategory == catCode && selectedTag == "All")
+                            DropdownMenuItem(
+                                text = { Text(name, fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = FocusColor(catCode)
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.selectedFolder.value = "INBOX"
+                                    viewModel.selectedCategory.value = catCode
                                     viewModel.selectedTag.value = "All"
                                     showMenu = false
                                 }
@@ -1620,6 +1700,7 @@ fun FocusColor(category: String): Color {
         "updates" -> InfoBlue
         "social" -> Color(0xFF1B60A5)
         "promotions" -> Color(0xFFFF9800)
+        "forums" -> Color(0xFF9C27B0)
         else -> Slate400
     }
 }

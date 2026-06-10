@@ -85,11 +85,15 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             list = list.filter { it.accountEmail == filter.accountEmail }
         }
 
-        // 2. Exclude non-primary categories in INBOX (Updates, Social, Promotions)
+        // 2. Filter by Category / Default Inbox exclusion
         if (folder.uppercase() == "INBOX") {
-            list = list.filter {
-                val cat = it.category.uppercase()
-                cat != "UPDATES" && cat != "SOCIAL" && cat != "PROMOTIONS"
+            if (filter.category != "All") {
+                list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
+            } else {
+                list = list.filter {
+                    val cat = it.category.uppercase()
+                    cat != "UPDATES" && cat != "SOCIAL" && cat != "PROMOTIONS" && cat != "FORUMS"
+                }
             }
         }
 
