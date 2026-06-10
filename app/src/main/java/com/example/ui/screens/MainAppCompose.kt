@@ -52,6 +52,7 @@ import com.example.ui.EmailViewModel
 import com.example.ui.theme.GrowwTeal
 import com.example.ui.theme.GrowwTealDark
 import com.example.util.BiometricHelper
+import com.example.util.AvatarHelper
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -982,6 +983,7 @@ fun InboxTabScreen(
                 items(filteredMessages, key = { it.id }) { mail ->
                     EmailMessageRowItem(
                         mail = mail,
+                        accounts = accounts,
                         onMailClick = { onMailClick(mail.id) },
                         onMailLongClick = { longPressedMail = mail },
                         onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) },
@@ -1182,6 +1184,7 @@ fun EmailSkeletonRowItem(alpha: Float) {
 @Composable
 fun EmailMessageRowItem(
     mail: EmailMessage,
+    accounts: List<EmailAccount>,
     onMailClick: () -> Unit,
     onMailLongClick: () -> Unit,
     onStarredToggle: () -> Unit,
@@ -1189,7 +1192,9 @@ fun EmailMessageRowItem(
 ) {
     val unreadWeight = if (!mail.isRead) FontWeight.ExtraBold else FontWeight.Normal
     val unreadColor = if (!mail.isRead) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
-    val relativeDateStr = SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date(mail.timestamp))
+    val relativeDateStr = remember(mail.timestamp) {
+        SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date(mail.timestamp))
+    }
 
     Column(
         modifier = Modifier
@@ -1213,12 +1218,46 @@ fun EmailMessageRowItem(
                     .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
-                val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
-                val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
-                val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
-                    "https://logo.clearbit.com/$domain"
-                } else {
-                    fallbackUrl
+                // Dynamic fallback colors based on name to match premium Google aesthetics (remembered to prevent recomposition overhead)
+                val fallbackUrl = remember(mail.senderName) {
+                    val colors = listOf("00d09c", "1a73e8", "8ab4f8", "fd9727", "fc5b5b", "a65bfc")
+                    val colorIndex = Math.abs(mail.senderName.hashCode()) % colors.size
+                    val avatarColor = colors[colorIndex]
+                    "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=$avatarColor&color=fff&size=128"
+                }
+
+                // Clean sender email (remembered to prevent parsing on every recomposition)
+                val emailClean = remember(mail.sender) {
+                    mail.sender.substringAfter("<", "").substringBefore(">", "").trim().ifEmpty { mail.sender.trim() }.lowercase()
+                }
+                
+                // Resolve profile picture URL using defined priority and cache check
+                val logoUrl = remember(emailClean, mail.senderName, accounts, fallbackUrl) {
+                    val matchedAccount = accounts.find { it.email.lowercase() == emailClean }
+                    if (matchedAccount != null && !matchedAccount.profilePictureUrl.isNullOrEmpty()) {
+                        matchedAccount.profilePictureUrl
+                    } else if (emailClean.contains("google.com") || emailClean.contains("security-noreply@google.com")) {
+                        // Google services -> Google G Logo
+                        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
+                    } else if (emailClean.contains("gmail.com") && (emailClean.contains("noreply") || emailClean.contains("support"))) {
+                        // Gmail system email -> Gmail logo
+                        "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+                    } else {
+                        val domain = emailClean.substringAfter("@", "")
+                        val targetUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                            "https://logo.clearbit.com/$domain"
+                        } else {
+                            // Try Gravatar personal photo, fallback to initials avatar via error state callback
+                            val hash = AvatarHelper.getMd5Hash(emailClean)
+                            "https://www.gravatar.com/avatar/$hash?d=404"
+                        }
+                        
+                        if (AvatarHelper.isUrlFailed(targetUrl)) {
+                            fallbackUrl
+                        } else {
+                            targetUrl
+                        }
+                    }
                 }
                 var imageUrl by remember(logoUrl) { mutableStateOf(logoUrl) }
                 coil.compose.AsyncImage(
@@ -1227,8 +1266,11 @@ fun EmailMessageRowItem(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     onState = { state ->
-                        if (state is coil.compose.AsyncImagePainter.State.Error && imageUrl != fallbackUrl) {
-                            imageUrl = fallbackUrl
+                        if (state is coil.compose.AsyncImagePainter.State.Error) {
+                            if (imageUrl != fallbackUrl) {
+                                AvatarHelper.markUrlAsFailed(imageUrl)
+                                imageUrl = fallbackUrl
+                            }
                         }
                     }
                 )

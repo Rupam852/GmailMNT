@@ -14,11 +14,13 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/callback`;
 
-const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI
-);
+const getOAuthClient = () => {
+  return new google.auth.OAuth2(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URI
+  );
+};
 
 // Scopes required for the application
 const SCOPES = [
@@ -114,7 +116,8 @@ app.get('/privacy-policy', (req, res) => {
  */
 app.get('/auth', (req, res) => {
   const accountId = req.query.accountId || 'default'; // handle multiple accounts linkage
-  const authUrl = oauth2Client.generateAuthUrl({
+  const client = getOAuthClient();
+  const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent', // ensures refresh token is returned
@@ -135,7 +138,8 @@ app.get('/callback', async (req, res) => {
   }
 
   try {
-    const { tokens } = await oauth2Client.getToken(code);
+    const client = getOAuthClient();
+    const { tokens } = await client.getToken(code);
     
     // Express returns the authentication completion page. We deep link back to Android
     // using a custom scheme (geminimail://)
@@ -150,7 +154,7 @@ app.get('/callback', async (req, res) => {
       picture: userInfo.picture,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      expires_at: Date.now() + (tokens.expiry_date || 3600 * 1000)
+      expires_at: tokens.expiry_date || (Date.now() + 3600 * 1000)
     };
 
     const schemeUrl = `geminimail://oauth-callback?email=${encodeURIComponent(redirectData.email)}` + 
@@ -207,15 +211,14 @@ app.post('/refresh', async (req, res) => {
   }
 
   try {
-    const client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+    const client = getOAuthClient();
     client.setCredentials({ refresh_token });
     
-    const tokenResponse = await client.getAccessToken();
-    const credentials = tokenResponse.res.data;
-
+    const { credentials } = await client.refreshAccessToken();
+ 
     res.json({
       access_token: credentials.access_token,
-      expires_at: Date.now() + (credentials.expires_in * 1000)
+      expires_at: credentials.expiry_date || (Date.now() + 3600 * 1000)
     });
   } catch (err) {
     console.error('Error refreshing token:', err);
