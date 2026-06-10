@@ -32,6 +32,18 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val customTags = MutableStateFlow<Set<String>>(preferences.customTags)
 
     // Accounts & Filtering Stream combines
+    // Multi‑select state for bulk actions
+    val selectedMailIds = MutableStateFlow<Set<String>>(emptySet())
+
+    fun toggleMailSelection(id: String) {
+        val current = selectedMailIds.value.toMutableSet()
+        if (current.contains(id)) current.remove(id) else current.add(id)
+        selectedMailIds.value = current
+    }
+
+    fun clearMailSelection() {
+        selectedMailIds.value = emptySet()
+    }
     val accounts: StateFlow<List<EmailAccount>> = repository.allAccounts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

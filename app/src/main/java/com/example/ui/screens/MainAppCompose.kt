@@ -1690,6 +1690,21 @@ fun SettingsTabScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+        // Privacy Policy link
+        val context = LocalContext.current
+        Text(
+            text = "Privacy Policy",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = GrowwTeal
+            ),
+            modifier = Modifier
+                .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("${renderBackendUrl}/privacy-policy"))
+                    context.startActivity(intent)
+                }
+                .padding(8.dp)
+        )
     }
 
     if (showAddAccountDialog) {
