@@ -1280,7 +1280,8 @@ fun InboxTabScreen(
                             } else {
                                 false
                             }
-                        }
+                        },
+                        positionalThreshold = { totalDistance -> totalDistance * 0.7f }
                     )
                     SwipeToDismissBox(
                         state = dismissState,
@@ -1549,70 +1550,34 @@ fun EmailMessageRowItem(
             verticalAlignment = Alignment.Top
         ) {
             // Profile Circle with Image
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                // Dynamic fallback colors based on name to match premium Google aesthetics (remembered to prevent recomposition overhead)
-                val fallbackUrl = remember(mail.senderName) {
-                    val colors = listOf("00d09c", "1a73e8", "8ab4f8", "fd9727", "fc5b5b", "a65bfc")
-                    val colorIndex = Math.abs(mail.senderName.hashCode()) % colors.size
-                    val avatarColor = colors[colorIndex]
-                    "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=$avatarColor&color=fff&size=128"
-                }
-
-                // Clean sender email (remembered to prevent parsing on every recomposition)
-                val emailClean = remember(mail.sender) {
-                    mail.sender.substringAfter("<", "").substringBefore(">", "").trim().ifEmpty { mail.sender.trim() }.lowercase()
-                }
-                
-                // Resolve profile picture URL using defined priority and cache check
-                val logoUrl = remember(emailClean, mail.senderName, accounts, fallbackUrl) {
-                    val matchedAccount = accounts.find { it.email.lowercase() == emailClean }
-                    if (matchedAccount != null && !matchedAccount.profilePictureUrl.isNullOrEmpty()) {
-                        matchedAccount.profilePictureUrl
-                    } else if (emailClean.contains("google.com") || emailClean.contains("security-noreply@google.com")) {
-                        // Google services -> Google G Logo
-                        "https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
-                    } else if (emailClean.contains("gmail.com") && (emailClean.contains("noreply") || emailClean.contains("support"))) {
-                        // Gmail system email -> Gmail logo
-                        "https://cdn-icons-png.flaticon.com/512/732/732200.png"
-                    } else {
-                        val domain = emailClean.substringAfter("@", "")
-                        val targetUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
-                            "https://logo.clearbit.com/$domain"
-                        } else {
-                            // Try Gravatar personal photo, fallback to initials avatar via error state callback
-                            val hash = AvatarHelper.getMd5Hash(emailClean)
-                            "https://www.gravatar.com/avatar/$hash?d=404"
-                        }
-                        
-                        if (AvatarHelper.isUrlFailed(targetUrl)) {
-                            fallbackUrl
-                        } else {
-                            targetUrl
-                        }
-                    }
-                }
-                var imageUrl by remember(logoUrl) { mutableStateOf(logoUrl) }
-                coil.compose.AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "Sender profile picture",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    onState = { state ->
-                        if (state is coil.compose.AsyncImagePainter.State.Error) {
-                            if (imageUrl != fallbackUrl) {
-                                AvatarHelper.markUrlAsFailed(imageUrl)
-                                imageUrl = fallbackUrl
-                            }
-                        }
-                    }
-                )
+            val emailClean = remember(mail.sender) {
+                mail.sender.substringAfter("<", "").substringBefore(">", "").trim().ifEmpty { mail.sender.trim() }.lowercase()
             }
+            
+            val logoUrl = remember(emailClean, mail.senderName, accounts) {
+                val matchedAccount = accounts.find { it.email.lowercase() == emailClean }
+                if (matchedAccount != null && !matchedAccount.profilePictureUrl.isNullOrEmpty()) {
+                    matchedAccount.profilePictureUrl
+                } else if (emailClean.contains("google.com") || emailClean.contains("security-noreply@google.com")) {
+                    "https://cdn-icons-png.flaticon.com/512/2991/2991148.png"
+                } else if (emailClean.contains("gmail.com") && (emailClean.contains("noreply") || emailClean.contains("support"))) {
+                    "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+                } else {
+                    val domain = emailClean.substringAfter("@", "")
+                    if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                        "https://logo.clearbit.com/$domain"
+                    } else {
+                        val hash = AvatarHelper.getMd5Hash(emailClean)
+                        "https://www.gravatar.com/avatar/$hash?d=404"
+                    }
+                }
+            }
+            
+            UserAvatar(
+                imageUrl = logoUrl,
+                name = mail.senderName.ifEmpty { emailClean },
+                modifier = Modifier.size(40.dp)
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 // Top Row: Sender Name & Date
@@ -1780,30 +1745,12 @@ fun ComposeTabScreen(
             }
             val fromProfilePic = activeFromAccount?.profilePictureUrl
             val fromDisplayName = activeFromAccount?.displayName ?: selectedFromEmail.substringBefore("@")
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                if (!fromProfilePic.isNullOrEmpty()) {
-                    coil.compose.AsyncImage(
-                        model = fromProfilePic,
-                        contentDescription = "From profile picture",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    )
-                } else {
-                    val defaultAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(fromDisplayName.ifEmpty { "From" })}&background=00d09c&color=fff&size=96"
-                    coil.compose.AsyncImage(
-                        model = defaultAvatarUrl,
-                        contentDescription = "From default avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    )
-                }
-            }
+            
+            UserAvatar(
+                imageUrl = fromProfilePic,
+                name = fromDisplayName.ifEmpty { "From" },
+                modifier = Modifier.size(40.dp)
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -1855,33 +1802,29 @@ fun ComposeTabScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
         ) {
-            val toDomain = recipient.substringAfter("@", "").substringBefore(">").trim().lowercase()
-            val toFallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(recipient.ifEmpty { "To" })}&background=1A73E8&color=fff&size=96"
-            val toLogoUrl = if (toDomain.isNotEmpty() && !toDomain.endsWith("gmail.com") && !toDomain.endsWith("yahoo.com") && !toDomain.endsWith("outlook.com") && toDomain.contains(".")) {
-                "https://logo.clearbit.com/$toDomain"
-            } else {
-                toFallbackUrl
-            }
-            var toImageUrl by remember(toLogoUrl) { mutableStateOf(toLogoUrl) }
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                coil.compose.AsyncImage(
-                    model = toImageUrl,
-                    contentDescription = "Recipient profile picture",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    onState = { state ->
-                        if (state is coil.compose.AsyncImagePainter.State.Error && toImageUrl != toFallbackUrl) {
-                            toImageUrl = toFallbackUrl
-                        }
+            val toLogoUrl = remember(recipient, accounts) {
+                val cleanTo = recipient.trim().lowercase()
+                val activeTo = accounts.find { it.email.lowercase() == cleanTo }
+                if (activeTo != null && !activeTo.profilePictureUrl.isNullOrEmpty()) {
+                    activeTo.profilePictureUrl
+                } else {
+                    val toDomain = cleanTo.substringAfter("@", "").substringBefore(">").trim()
+                    if (toDomain.isNotEmpty() && !toDomain.endsWith("gmail.com") && !toDomain.endsWith("yahoo.com") && !toDomain.endsWith("outlook.com") && toDomain.contains(".")) {
+                        "https://logo.clearbit.com/$toDomain"
+                    } else if (cleanTo.isNotEmpty()) {
+                        val hash = AvatarHelper.getMd5Hash(cleanTo)
+                        "https://www.gravatar.com/avatar/$hash?d=404"
+                    } else {
+                        null
                     }
-                )
+                }
             }
+            
+            UserAvatar(
+                imageUrl = toLogoUrl,
+                name = recipient.ifEmpty { "To" },
+                modifier = Modifier.size(40.dp)
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -2348,6 +2291,7 @@ fun EmailDetailDialog(
 ) {
     var showReplyComposer by remember { mutableStateOf(false) }
     val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -2385,33 +2329,29 @@ fun EmailDetailDialog(
 
                 // Sender Info panel
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
-                        val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
-                        val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
-                            "https://logo.clearbit.com/$domain"
-                        } else {
-                            fallbackUrl
-                        }
-                        var imageUrlDetails by remember(logoUrl) { mutableStateOf(logoUrl) }
-                        coil.compose.AsyncImage(
-                            model = imageUrlDetails,
-                            contentDescription = "Sender profile picture details",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                            onState = { state ->
-                                if (state is coil.compose.AsyncImagePainter.State.Error && imageUrlDetails != fallbackUrl) {
-                                    imageUrlDetails = fallbackUrl
-                                }
-                            }
-                        )
+                    val cleanSender = remember(mail.sender) {
+                        mail.sender.substringAfter("<", "").substringBefore(">", "").trim().ifEmpty { mail.sender.trim() }.lowercase()
                     }
+                    val matchedAccount = accounts.find { it.email.lowercase() == cleanSender }
+                    val senderLogoUrl = remember(cleanSender, accounts) {
+                        if (matchedAccount != null && !matchedAccount.profilePictureUrl.isNullOrEmpty()) {
+                            matchedAccount.profilePictureUrl
+                        } else {
+                            val domain = cleanSender.substringAfter("@", "")
+                            if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                                "https://logo.clearbit.com/$domain"
+                            } else {
+                                val hash = AvatarHelper.getMd5Hash(cleanSender)
+                                "https://www.gravatar.com/avatar/$hash?d=404"
+                            }
+                        }
+                    }
+                    
+                    UserAvatar(
+                        imageUrl = senderLogoUrl,
+                        name = mail.senderName.ifEmpty { cleanSender },
+                        modifier = Modifier.size(44.dp)
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(mail.senderName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
@@ -2928,4 +2868,64 @@ fun ManageTagsDialog(
             }
         }
     )
+}
+
+@Composable
+fun UserAvatar(
+    imageUrl: String?,
+    name: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium
+) {
+    var isError by remember(imageUrl) { mutableStateOf(imageUrl.isNullOrEmpty()) }
+    
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(
+                if (isError) {
+                    val colors = listOf(
+                        Color(0xFF00D09C), // Groww Teal
+                        Color(0xFF1A73E8), // Google Blue
+                        Color(0xFF8AB4F8), // Light Blue
+                        Color(0xFFFD9727), // Orange
+                        Color(0xFFFC5B5B), // Red
+                        Color(0xFFA65BFC), // Purple
+                        Color(0xFF00BFA5), // Teal
+                        Color(0xFFE91E63), // Pink
+                        Color(0xFF3F51B5)  // Indigo
+                    )
+                    val cleanName = name.trim()
+                    val hash = Math.abs(cleanName.hashCode())
+                    colors[hash % colors.size]
+                } else {
+                    Color.Transparent
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!isError && !imageUrl.isNullOrEmpty()) {
+            coil.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = "Profile picture",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                onState = { state ->
+                    if (state is coil.compose.AsyncImagePainter.State.Error) {
+                        isError = true
+                    }
+                }
+            )
+        } else {
+            val initial = name.trim().firstOrNull()?.uppercaseChar() ?: '?'
+            Text(
+                text = initial.toString(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = textStyle
+            )
+        }
+    }
 }
