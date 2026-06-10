@@ -833,14 +833,133 @@ fun InboxTabScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                    .padding(start = 6.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search Icon",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier.size(22.dp)
-                )
+                var showMenu by remember { mutableStateOf(false) }
+
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu Icon",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface)
+                            .width(240.dp)
+                    ) {
+                        val isAllInboxSelected = selectedFolder.uppercase() == "INBOX" && (selectedAccount == "All" || selectedAccount == null)
+                        DropdownMenuItem(
+                            text = { Text("All Inbox", fontWeight = if (isAllInboxSelected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.MailOutline,
+                                    contentDescription = null,
+                                    tint = if (isAllInboxSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            },
+                            onClick = {
+                                viewModel.selectedFolder.value = "INBOX"
+                                viewModel.selectedAccount.value = "All"
+                                viewModel.selectedCategory.value = "All"
+                                viewModel.selectedTag.value = "All"
+                                showMenu = false
+                            }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        val folders = listOf(
+                            "Sent" to "SENT",
+                            "Drafts" to "DRAFT",
+                            "Trash" to "TRASH"
+                        )
+                        folders.forEach { (name, code) ->
+                            val isSelected = selectedFolder.uppercase() == code
+                            DropdownMenuItem(
+                                text = { Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                leadingIcon = {
+                                    val icon = when (code) {
+                                        "SENT" -> Icons.AutoMirrored.Filled.Send
+                                        "DRAFT" -> Icons.Default.Edit
+                                        "TRASH" -> Icons.Default.Delete
+                                        else -> Icons.Default.Email
+                                    }
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.selectedFolder.value = code
+                                    viewModel.selectedCategory.value = "All"
+                                    viewModel.selectedTag.value = "All"
+                                    showMenu = false
+                                }
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        Text(
+                            text = "ALL ADDED EMAILS",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+
+                        val isAllAccountsSelected = selectedAccount == "All" || selectedAccount == null
+                        DropdownMenuItem(
+                            text = { Text("All Accounts", fontWeight = if (isAllAccountsSelected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = null,
+                                    tint = if (isAllAccountsSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            },
+                            onClick = {
+                                viewModel.selectedAccount.value = "All"
+                                showMenu = false
+                            }
+                        )
+
+                        accounts.forEach { account ->
+                            val isAccSelected = selectedAccount == account.email
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = account.email,
+                                        fontWeight = if (isAccSelected) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Email,
+                                        contentDescription = null,
+                                        tint = if (isAccSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.selectedAccount.value = account.email
+                                    showMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
                 TextField(
                     value = searchQuery,
                     onValueChange = { viewModel.searchQuery.value = it },
@@ -908,50 +1027,7 @@ fun InboxTabScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
 
-        // Folder Selector Chips Row
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            val folders = listOf(
-                "Inbox" to "INBOX",
-                "Sent" to "SENT",
-                "Drafts" to "DRAFT",
-                "Trash" to "TRASH"
-            )
-            items(folders) { (name, code) ->
-                val isSelected = selectedFolder.uppercase() == code
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        viewModel.selectedFolder.value = code
-                        viewModel.selectedCategory.value = "All"
-                        viewModel.selectedTag.value = "All"
-                    },
-                    label = { Text(name, fontSize = 12.sp) },
-                    leadingIcon = {
-                        val icon = when (code) {
-                            "INBOX" -> Icons.Default.MailOutline
-                            "SENT" -> Icons.AutoMirrored.Filled.Send
-                            "DRAFT" -> Icons.Default.Edit
-                            "TRASH" -> Icons.Default.Delete
-                            else -> Icons.Default.Email
-                        }
-                        Icon(icon, contentDescription = name, modifier = Modifier.size(16.dp))
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
-                        selectedLabelColor = GrowwTeal,
-                        selectedLeadingIconColor = GrowwTeal
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.height(32.dp)
-                )
-            }
-        }
 
 
 
@@ -1006,60 +1082,7 @@ fun InboxTabScreen(
             }
         }
 
-        // 2. Bound Accounts Selector Strip & Refresh Sync Button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                item {
-                    val isAllSelected = selectedAccount == "All" || selectedAccount == null
-                    FilterChip(
-                        selected = isAllSelected,
-                        onClick = {
-                            viewModel.selectedAccount.value = "All"
-                            viewModel.selectedCategory.value = "All"
-                            viewModel.selectedTag.value = "All"
-                        },
-                        label = { Text("All", fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
-                            selectedLabelColor = GrowwTeal,
-                            selectedLeadingIconColor = GrowwTeal
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.height(30.dp)
-                    )
-                }
 
-                items(accounts) { account ->
-                    val isSelected = selectedAccount == account.email
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            viewModel.selectedAccount.value = account.email
-                            viewModel.selectedCategory.value = "All"
-                            viewModel.selectedTag.value = "All"
-                        },
-                        label = { Text(account.email, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
-                            selectedLabelColor = GrowwTeal,
-                            selectedLeadingIconColor = GrowwTeal
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.height(30.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
 
         // 5. Emails Scrollable List View with pulsing Skeleton Loaders
         if (isLoading) {
