@@ -539,10 +539,16 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         preferences.draftCategory = category
     }
 
+    fun startEditingDraft(mail: EmailMessage) {
+        saveDraft(mail.recipient ?: "", mail.subject, mail.body, mail.category)
+        activeEditingDraftId.value = mail.id
+    }
+
     fun clearDraft() {
         preferences.draftRecipient = ""
         preferences.draftSubject = ""
         preferences.draftBody = ""
         preferences.draftCategory = "Primary"
+        activeEditingDraftId.value = null
     }
 }

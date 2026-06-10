@@ -419,6 +419,7 @@ fun DashboardScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
+    val selectedFolder by viewModel.selectedFolder.collectAsState()
 
     var showManageTagsDialogSide by remember { mutableStateOf(false) }
 
@@ -478,17 +479,15 @@ fun DashboardScreen(
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
 
-                    // Render standard email folders (represented by Categories / Labels)
-                    val folders = listOf(
-                        "Inbox (All)" to "All",
-                        "Primary" to "Primary",
-                        "Updates" to "Updates",
-                        "Social" to "Social",
-                        "Promotions" to "Promotions"
+                    val foldersList = listOf(
+                        "Inbox" to "INBOX",
+                        "Sent" to "SENT",
+                        "Drafts" to "DRAFT",
+                        "Trash" to "TRASH"
                     )
 
-                    folders.forEach { (name, label) ->
-                        val isFolderSelected = (selectedTab == 0 && selectedCategory == label && selectedTag == "All")
+                    foldersList.forEach { (name, folderCode) ->
+                        val isFolderSelected = (selectedTab == 0 && selectedFolder.uppercase() == folderCode)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -496,19 +495,27 @@ fun DashboardScreen(
                                 .background(if (isFolderSelected) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
                                 .clickable {
                                     selectedTab = 0
-                                    viewModel.selectedCategory.value = label
+                                    viewModel.selectedFolder.value = folderCode
+                                    viewModel.selectedCategory.value = "All"
                                     viewModel.selectedTag.value = "All"
                                 }
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                val icon = when (folderCode) {
+                                    "INBOX" -> Icons.Default.MailOutline
+                                    "SENT" -> Icons.AutoMirrored.Filled.Send
+                                    "DRAFT" -> Icons.Default.Edit
+                                    "TRASH" -> Icons.Default.Delete
+                                    else -> Icons.Default.Email
+                                }
                                 Icon(
-                                    imageVector = Icons.Default.Email,
+                                    imageVector = icon,
                                     contentDescription = name,
-                                    tint = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    tint = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
@@ -516,6 +523,48 @@ fun DashboardScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isFolderSelected) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isFolderSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    if (selectedFolder.uppercase() == "INBOX") {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "CATEGORIES",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+
+                        val categoriesList = listOf(
+                            "All Inbox" to "All",
+                            "Primary" to "Primary",
+                            "Updates" to "Updates",
+                            "Social" to "Social",
+                            "Promotions" to "Promotions"
+                        )
+
+                        categoriesList.forEach { (name, catCode) ->
+                            val isCatSelected = (selectedTab == 0 && selectedCategory == catCode && selectedTag == "All")
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isCatSelected) GrowwTeal.copy(alpha = 0.08f) else Color.Transparent)
+                                    .clickable {
+                                        selectedTab = 0
+                                        viewModel.selectedCategory.value = catCode
+                                        viewModel.selectedTag.value = "All"
+                                    }
+                                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isCatSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                                 )
                             }
                         }
@@ -801,6 +850,7 @@ fun InboxTabScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
+    val selectedFolder by viewModel.selectedFolder.collectAsState()
 
     var longPressedMail by remember { mutableStateOf<EmailMessage?>(null) }
 
@@ -903,6 +953,132 @@ fun InboxTabScreen(
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+
+        // Folder Selector Chips Row
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val folders = listOf(
+                "Inbox" to "INBOX",
+                "Sent" to "SENT",
+                "Drafts" to "DRAFT",
+                "Trash" to "TRASH"
+            )
+            items(folders) { (name, code) ->
+                val isSelected = selectedFolder.uppercase() == code
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        viewModel.selectedFolder.value = code
+                        viewModel.selectedCategory.value = "All"
+                        viewModel.selectedTag.value = "All"
+                    },
+                    label = { Text(name, fontSize = 12.sp) },
+                    leadingIcon = {
+                        val icon = when (code) {
+                            "INBOX" -> Icons.Default.MailOutline
+                            "SENT" -> Icons.AutoMirrored.Filled.Send
+                            "DRAFT" -> Icons.Default.Edit
+                            "TRASH" -> Icons.Default.Delete
+                            else -> Icons.Default.Email
+                        }
+                        Icon(icon, contentDescription = name, modifier = Modifier.size(16.dp))
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
+                        selectedLabelColor = GrowwTeal,
+                        selectedLeadingIconColor = GrowwTeal
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(32.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Category Selector Chips Row (only visible if selectedFolder == "INBOX")
+        AnimatedVisibility(visible = selectedFolder.uppercase() == "INBOX") {
+            Column {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(categories) { cat ->
+                        val isCatSelected = selectedCategory == cat
+                        FilterChip(
+                            selected = isCatSelected,
+                            onClick = {
+                                viewModel.selectedCategory.value = cat
+                                viewModel.selectedTag.value = "All"
+                            },
+                            label = { Text(cat, fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = GrowwTeal.copy(alpha = 0.12f),
+                                selectedLabelColor = GrowwTeal
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.height(30.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Trash Quick Actions Banner
+        AnimatedVisibility(visible = selectedFolder.uppercase() == "TRASH" && filteredMessages.isNotEmpty()) {
+            Column {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Deleted emails folder",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = { viewModel.restoreAllTrash() },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text("Restore All", color = GrowwTeal, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            Button(
+                                onClick = { viewModel.emptyTrash() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
+                                contentPadding = PaddingValues(horizontal = 10.dp),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Empty", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
 
         // 2. Bound Accounts Selector Strip & Refresh Sync Button
         Row(
@@ -1444,10 +1620,12 @@ fun ComposeTabScreen(
     onComposeSuccess: () -> Unit
 ) {
     val context = LocalContext.current
-    var recipient by remember { mutableStateOf(viewModel.getDraftRecipient()) }
-    var subject by remember { mutableStateOf(viewModel.getDraftSubject()) }
-    var body by remember { mutableStateOf(viewModel.getDraftBody()) }
-    var category by remember { mutableStateOf(viewModel.getDraftCategory()) }
+    val activeDraftId by viewModel.activeEditingDraftId.collectAsState()
+
+    var recipient by remember(activeDraftId) { mutableStateOf(viewModel.getDraftRecipient()) }
+    var subject by remember(activeDraftId) { mutableStateOf(viewModel.getDraftSubject()) }
+    var body by remember(activeDraftId) { mutableStateOf(viewModel.getDraftBody()) }
+    var category by remember(activeDraftId) { mutableStateOf(viewModel.getDraftCategory()) }
     var showGeminiWizard by remember { mutableStateOf(false) }
 
     val accounts by viewModel.accounts.collectAsState()
@@ -1642,11 +1820,39 @@ fun ComposeTabScreen(
                     contentColor = GrowwTeal
                 ),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.testTag("gemini_draft_button")
+                modifier = Modifier.testTag("gemini_draft_button").height(40.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp)
             ) {
-                Icon(Icons.Default.Face, "Gemini Assist", modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Gemini Draft (AI)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Icon(Icons.Default.Face, "Gemini Assist", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("AI Draft", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            // Save Draft Button
+            OutlinedButton(
+                onClick = {
+                    if (recipient.isEmpty() && subject.isEmpty() && body.isEmpty()) {
+                        Toast.makeText(context, "Nothing to save as draft.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        viewModel.saveDraftToDb(selectedFromEmail, recipient, subject, body, category)
+                        viewModel.clearDraft()
+                        recipient = ""
+                        subject = ""
+                        body = ""
+                        category = "Primary"
+                        Toast.makeText(context, "Draft saved successfully!", Toast.LENGTH_SHORT).show()
+                        onComposeSuccess()
+                    }
+                },
+                border = BorderStroke(1.dp, GrowwTeal),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = GrowwTeal),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp)
+            ) {
+                Icon(Icons.Default.Edit, "Save Draft", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Save Draft", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
 
             // Command Send
@@ -1670,11 +1876,12 @@ fun ComposeTabScreen(
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.testTag("compose_send_button")
+                modifier = Modifier.testTag("compose_send_button").height(40.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, "Send button element", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Send", fontWeight = FontWeight.Bold)
+                Icon(Icons.AutoMirrored.Filled.Send, "Send button element", modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Send", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }
@@ -1831,6 +2038,9 @@ fun SettingsTabScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             var showKey by remember { mutableStateOf(false) }
+            var localApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
+            val context = LocalContext.current
+
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
                     "Input your custom Google Gemini API Key. It is written directly to local device storage, keeping configurations completely secure.",
@@ -1839,8 +2049,8 @@ fun SettingsTabScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
-                    value = geminiApiKey,
-                    onValueChange = { viewModel.setGeminiApiKey(it) },
+                    value = localApiKey,
+                    onValueChange = { localApiKey = it },
                     visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                     label = { Text("Personal Gemini Key") },
                     trailingIcon = {
@@ -1852,6 +2062,20 @@ fun SettingsTabScreen(
                     modifier = Modifier.fillMaxWidth().testTag("gemini_key_input"),
                     shape = RoundedCornerShape(10.dp)
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        viewModel.setGeminiApiKey(localApiKey)
+                        Toast.makeText(context, "Gemini API Key saved successfully", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GrowwTeal
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save API Key", fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -1891,6 +2115,7 @@ fun SettingsTabScreen(
         }
 
         Text("BULK ACTIONS", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp, top = 8.dp))
+        val localContext = LocalContext.current
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             shape = RoundedCornerShape(14.dp),
@@ -1901,7 +2126,10 @@ fun SettingsTabScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
-                    onClick = { viewModel.markAllAsRead(true) },
+                    onClick = {
+                        viewModel.markAllAsRead(true)
+                        Toast.makeText(localContext, "All emails marked as read", Toast.LENGTH_SHORT).show()
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
                     shape = RoundedCornerShape(8.dp)
@@ -1909,7 +2137,10 @@ fun SettingsTabScreen(
                     Text("Read All", fontWeight = FontWeight.Bold)
                 }
                 Button(
-                    onClick = { viewModel.markAllAsRead(false) },
+                    onClick = {
+                        viewModel.markAllAsRead(false)
+                        Toast.makeText(localContext, "All emails marked as unread", Toast.LENGTH_SHORT).show()
+                    },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), contentColor = MaterialTheme.colorScheme.onSurface),
                     shape = RoundedCornerShape(8.dp)
@@ -2161,6 +2392,45 @@ fun EmailDetailDialog(
                             },
                             onCancel = { showReplyComposer = false }
                         )
+                    }
+                } else if (mail.label.uppercase() == "DRAFT") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.startEditingDraft(mail)
+                                onForward()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GrowwTeal,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, "Edit Draft", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Edit Draft", fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.deleteMail(mail.id)
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFD32F2F),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, "Delete Draft")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Delete Draft", fontWeight = FontWeight.Bold)
+                        }
                     }
                 } else {
                     Row(
