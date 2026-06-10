@@ -8,7 +8,6 @@ import com.example.api.GenerateContentRequest
 import com.example.api.Part
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -92,56 +91,6 @@ class EmailRepository(private val context: Context) {
 
     suspend fun insertMessage(message: EmailMessage) = withContext(Dispatchers.IO) {
         dao.insertMessage(message)
-    }
-
-    suspend fun autoCategorizeExistingEmails() = withContext(Dispatchers.IO) {
-        try {
-            val messages = dao.getAllMessages().first()
-            messages.forEach { email ->
-                if (email.category == "Primary") {
-                    val newCat = detectCategory(email.sender, email.senderName, email.subject)
-                    if (newCat != "Primary") {
-                        dao.updateMessage(email.copy(category = newCat))
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("EmailRepository", "Error auto categorizing existing messages", e)
-        }
-    }
-
-    fun detectCategory(sender: String, senderName: String, subject: String): String {
-        val s = sender.lowercase()
-        val sn = senderName.lowercase()
-        val subj = subject.lowercase()
-
-        // Updates
-        if (s.contains("security") || s.contains("noreply") || s.contains("no-reply") || s.contains("alert") ||
-            s.contains("notification") || s.contains("support") || s.contains("service") || s.contains("info") ||
-            sn.contains("security") || sn.contains("alert") || sn.contains("system") || sn.contains("google security") ||
-            subj.contains("security") || subj.contains("otp") || subj.contains("verification") || subj.contains("verify") ||
-            subj.contains("device") || subj.contains("login") || subj.contains("authorized")) {
-            return "Updates"
-        }
-
-        // Social
-        if (s.contains("facebook") || s.contains("twitter") || s.contains("linkedin") || s.contains("instagram") ||
-            s.contains("youtube") || s.contains("social") || s.contains("community") ||
-            sn.contains("facebook") || sn.contains("twitter") || sn.contains("linkedin") || sn.contains("instagram") ||
-            sn.contains("youtube") || sn.contains("social") || sn.contains("community")) {
-            return "Social"
-        }
-
-        // Promotions
-        if (s.contains("promo") || s.contains("offer") || s.contains("deal") || s.contains("marketing") ||
-            s.contains("news") || s.contains("newsletter") || s.contains("discount") || s.contains("sale") ||
-            sn.contains("promo") || sn.contains("offer") || sn.contains("newsletter") || sn.contains("marketing") ||
-            subj.contains("off") || subj.contains("promo") || subj.contains("discount") || subj.contains("deal") ||
-            subj.contains("sale") || subj.contains("exclusive")) {
-            return "Promotions"
-        }
-
-        return "Primary"
     }
 
     /**
@@ -424,7 +373,7 @@ class EmailRepository(private val context: Context) {
                             label = "DRAFT"
                         }
 
-                        // Map category labels
+                        // Parse Category
                         if (labels.contains("CATEGORY_UPDATES")) {
                             category = "Updates"
                         } else if (labels.contains("CATEGORY_SOCIAL")) {
@@ -435,13 +384,7 @@ class EmailRepository(private val context: Context) {
                             category = "Forums"
                         } else if (labels.contains("CATEGORY_PERSONAL")) {
                             category = "Primary"
-                        } else {
-                            // Fallback heuristic categorisation
-                            category = detectCategory(from, fromName, subject)
                         }
-                    } else {
-                        // Fallback heuristic categorisation
-                        category = detectCategory(from, fromName, subject)
                     }
 
                     return EmailMessage(
