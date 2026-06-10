@@ -730,6 +730,9 @@ fun DashboardScreen(
             onDismiss = {
                 showDetailDialog = false
                 viewModel.selectMailId(null)
+            },
+            onForward = {
+                selectedTab = 1
             }
         )
     }
@@ -1727,7 +1730,8 @@ fun AddAccountSelectionDialog(
 fun EmailDetailDialog(
     mail: EmailMessage,
     viewModel: EmailViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onForward: () -> Unit
 ) {
     var showReplyComposer by remember { mutableStateOf(false) }
     val isDarkMode by viewModel.isDarkMode.collectAsState()
@@ -1905,6 +1909,37 @@ fun EmailDetailDialog(
                             Icon(Icons.Default.Edit, "Quick reply", modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Reply", fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                val fwdSubject = "Fwd: ${mail.subject}"
+                                val formattedDate = SimpleDateFormat("EEE, MMM d, yyyy 'at' h:mm a", Locale.getDefault()).format(Date(mail.timestamp))
+                                val fwdBody = "\n\n---------- Forwarded message ---------\n" +
+                                        "From: ${mail.senderName} <${mail.sender}>\n" +
+                                        "Date: $formattedDate\n" +
+                                        "Subject: ${mail.subject}\n" +
+                                        "To: ${mail.recipient}\n\n" +
+                                        mail.body
+                                
+                                viewModel.saveDraft(
+                                    recipient = "",
+                                    subject = fwdSubject,
+                                    body = fwdBody,
+                                    category = mail.category
+                                )
+                                onForward()
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Share, "Forward email", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Forward", fontWeight = FontWeight.Bold)
                         }
                         Button(
                             onClick = {
