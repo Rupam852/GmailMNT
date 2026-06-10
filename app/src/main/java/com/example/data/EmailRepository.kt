@@ -450,7 +450,7 @@ class EmailRepository(private val context: Context) {
         val account = dao.getAccountByEmail(fromEmail)
         
         // If it's a mock/simulated account (or no account exists), we treat it as successful mock send.
-        if (account == null || account.email.lowercase().contains("simulated") || account.refreshToken.isEmpty()) {
+        if (account == null || account.email.lowercase().contains("simulated")) {
             Log.d("EmailRepository", "Mock email sent locally for simulated account: $fromEmail")
             return@withContext true
         }
@@ -458,7 +458,7 @@ class EmailRepository(private val context: Context) {
         // Real account: Refresh token if expiring
         val pref = PreferenceManager(context)
         val backendUrl = pref.renderBackendUrl
-        if (account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+        if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
             refreshAccessToken(fromEmail, backendUrl)
         }
 
