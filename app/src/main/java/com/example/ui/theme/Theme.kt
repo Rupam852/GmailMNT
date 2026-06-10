@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = GrowwTeal,              // 8AB4F8 Light Blue
+    primary = GrowwTealStatic,        // 8AB4F8 Light Blue
     secondary = Color(0xFF535F70),    // Slate Blue Accent
     tertiary = InfoBlue,              // C2E7FF Light Blue
     background = GrowwDarkBg,         // 0D1117 Space Dark Background
@@ -26,11 +26,11 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF1B60A5),      // Elegant Mild Dark Blue
+    primary = Color(0xFF1A73E8),      // Vibrant Google/Groww Premium Blue for high contrast
     secondary = Color(0xFF535F70),    // Slate Blue
     tertiary = Color(0xFF00639B),     // Elegant light-mode Blue
     background = GrowwLightBg,        // F0F4F9 Light Blue Background
-    surface = GrowwLightSurface,      // DFE3E7 Light Surface Card
+    surface = GrowwLightSurface,      // FFFFFF Pure White Card
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
