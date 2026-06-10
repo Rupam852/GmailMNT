@@ -184,6 +184,34 @@ class EmailRepository(private val context: Context) {
                     isRead = true,
                     isStarred = true,
                     category = "Updates"
+                ),
+                EmailMessage(
+                    id = "msg_4_${accountEmail}",
+                    accountEmail = accountEmail,
+                    senderName = "Spam Promo Group",
+                    sender = "spammer@spamlink.xyz",
+                    recipient = accountEmail,
+                    subject = "Congratulations! You won a $1000 Gift Card!",
+                    body = "Click this link now to claim your reward. This is a limited time offer and will expire in 2 hours. Go to spamlink.xyz to verify your identity.",
+                    timestamp = currentTime - 8 * 60 * 1000,
+                    isRead = true,
+                    isStarred = false,
+                    category = "Promotions",
+                    label = "SPAM"
+                ),
+                EmailMessage(
+                    id = "msg_5_${accountEmail}",
+                    accountEmail = accountEmail,
+                    senderName = "Old Invoice / Archive",
+                    sender = "billing@cloud-services.net",
+                    recipient = accountEmail,
+                    subject = "Invoice for May 2026 - Paid",
+                    body = "Your payment of $49.00 for cloud resources has been successfully processed. This message has been archived for bookkeeping purposes.",
+                    timestamp = currentTime - 10 * 60 * 1000,
+                    isRead = true,
+                    isStarred = false,
+                    category = "Primary",
+                    label = "ARCHIVE"
                 )
             )
         } else {
@@ -371,6 +399,10 @@ class EmailRepository(private val context: Context) {
                             label = "TRASH"
                         } else if (labels.contains("DRAFT")) {
                             label = "DRAFT"
+                        } else if (labels.contains("SPAM")) {
+                            label = "SPAM"
+                        } else if (!labels.contains("INBOX")) {
+                            label = "ARCHIVE"
                         }
 
                         // Parse Category
@@ -380,10 +412,6 @@ class EmailRepository(private val context: Context) {
                             category = "Social"
                         } else if (labels.contains("CATEGORY_PROMOTIONS")) {
                             category = "Promotions"
-                        } else if (labels.contains("CATEGORY_FORUMS")) {
-                            category = "Forums"
-                        } else if (labels.contains("CATEGORY_PERSONAL")) {
-                            category = "Primary"
                         }
                     }
 

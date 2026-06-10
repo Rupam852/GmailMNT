@@ -483,6 +483,8 @@ fun DashboardScreen(
                         "Inbox" to "INBOX",
                         "Sent" to "SENT",
                         "Drafts" to "DRAFT",
+                        "Spam" to "SPAM",
+                        "Archive" to "ARCHIVE",
                         "Trash" to "TRASH"
                     )
 
@@ -509,6 +511,8 @@ fun DashboardScreen(
                                     "INBOX" -> Icons.Default.MailOutline
                                     "SENT" -> Icons.AutoMirrored.Filled.Send
                                     "DRAFT" -> Icons.Default.Edit
+                                    "SPAM" -> Icons.Default.Warning
+                                    "ARCHIVE" -> Icons.Default.Email
                                     "TRASH" -> Icons.Default.Delete
                                     else -> Icons.Default.Email
                                 }
@@ -880,6 +884,8 @@ fun InboxTabScreen(
                         val folders = listOf(
                             "Sent" to "SENT",
                             "Drafts" to "DRAFT",
+                            "Spam" to "SPAM",
+                            "Archive" to "ARCHIVE",
                             "Trash" to "TRASH"
                         )
                         folders.forEach { (name, code) ->
@@ -890,6 +896,8 @@ fun InboxTabScreen(
                                     val icon = when (code) {
                                         "SENT" -> Icons.AutoMirrored.Filled.Send
                                         "DRAFT" -> Icons.Default.Edit
+                                        "SPAM" -> Icons.Default.Warning
+                                        "ARCHIVE" -> Icons.Default.Email
                                         "TRASH" -> Icons.Default.Delete
                                         else -> Icons.Default.Email
                                     }
