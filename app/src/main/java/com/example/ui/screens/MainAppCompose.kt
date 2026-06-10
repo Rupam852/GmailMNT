@@ -1792,39 +1792,6 @@ fun SettingsTabScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-
-        // 6. Test Sandbox Simulator controls
-        Text("DEVELOPER TEST SANDBOX", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    "Simulate fresh incoming email messages dynamically using local sync mechanisms for testing notifications.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = { 
-                        viewModel.simulateIncomingEmail()
-                        Toast.makeText(activity, "Simulated email triggered successfully!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = GrowwTeal.copy(alpha = 0.12f),
-                        contentColor = GrowwTeal
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.Notifications, "Inbound trigger", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Trigger Mock Incoming Email", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
     }
 
     if (showAddAccountDialog) {
@@ -1844,63 +1811,30 @@ fun AddAccountSelectionDialog(
     onDismiss: () -> Unit
 ) {
     val renderUrl by viewModel.renderBackendUrl.collectAsState()
-    var inputEmail by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold) },
         text = {
-            Column {
-                Text(
-                    "You can link your active Google account via our Render authentication server, or trigger a local simulated account instantly.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                Button(
-                    onClick = {
-                        // Launch web browser auth flow targeting express server
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
-                        activity.startActivity(intent)
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Lock, "OAuth secure verification")
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Authenticate Real Gmail (OAuth)", fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(14.dp))
-                Text("ADD SIMULATED ACCOUNT PROFILE", fontWeight = FontWeight.SemiBold, fontSize = 10.sp, color = GrowwTeal)
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = inputEmail,
-                    onValueChange = { inputEmail = it },
-                    label = { Text("Email Identity ID") },
-                    placeholder = { Text("demo.recipient@gmail.com") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                )
-            }
+            Text(
+                "You can link your active Google account securely using OAuth. This will redirect you to the Google login screen.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (inputEmail.contains("@")) {
-                        viewModel.handleOAuthSuccess(inputEmail, "mock_token", "mock_refresh", System.currentTimeMillis() + 360000)
-                        Toast.makeText(activity, "Simulated profile registers successfully!", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    } else {
-                        Toast.makeText(activity, "Checks Failed: Please submit valid email address", Toast.LENGTH_SHORT).show()
-                    }
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
+                    activity.startActivity(intent)
+                    onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface)
+                colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Add Trial Account", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Lock, "OAuth secure verification")
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Link Google Account", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

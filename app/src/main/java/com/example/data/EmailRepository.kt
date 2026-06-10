@@ -221,7 +221,22 @@ class EmailRepository(context: Context) {
             }
         }
         
+        val newMessages = mockMessages.filter { msg ->
+            dao.getMessageById(msg.id) == null
+        }
+        
         dao.insertMessages(mockMessages)
+
+        newMessages.forEach { msg ->
+            if (!msg.isRead) {
+                com.example.util.NotificationHelper.showEmailNotification(
+                    context = context,
+                    senderName = msg.senderName,
+                    subject = msg.subject,
+                    bodySnippet = msg.body
+                )
+            }
+        }
     }
 
     private fun fetchGmailDetails(msgId: String, token: String, accountEmail: String): EmailMessage? {
