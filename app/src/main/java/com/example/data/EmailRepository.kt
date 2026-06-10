@@ -270,10 +270,16 @@ class EmailRepository(private val context: Context) {
                         if (name == "subject") {
                             subject = value
                         } else if (name == "from") {
-                            from = value
-                            fromName = value.substringBefore("<").trim()
+                            val rawValue = value.trim()
+                            if (rawValue.contains("<") && rawValue.contains(">")) {
+                                fromName = rawValue.substringBefore("<").trim().replace("\"", "").replace("'", "")
+                                from = rawValue.substringAfter("<").substringBefore(">").trim()
+                            } else {
+                                from = rawValue
+                                fromName = rawValue.substringBefore("@").trim().replace("\"", "").replace("'", "")
+                            }
                             if (fromName.isEmpty()) {
-                                fromName = value
+                                fromName = from
                             }
                         }
                     }

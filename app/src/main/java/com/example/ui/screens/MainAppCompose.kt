@@ -973,8 +973,7 @@ fun InboxTabScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 items(filteredMessages, key = { it.id }) { mail ->
                     EmailMessageRowItem(
@@ -1091,168 +1090,135 @@ fun EmailMessageRowItem(
     onDeleteClick: () -> Unit
 ) {
     val unreadWeight = if (!mail.isRead) FontWeight.ExtraBold else FontWeight.Normal
+    val unreadColor = if (!mail.isRead) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
     val relativeDateStr = SimpleDateFormat("dd MMM", Locale.getDefault()).format(Date(mail.timestamp))
 
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onMailClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (!mail.isRead) MaterialTheme.colorScheme.surface
-            else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (!mail.isRead) 1.5.dp else 0.dp)
+            .clickable { onMailClick() }
+            .background(if (!mail.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) else Color.Transparent)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+            // Profile Circle with Image
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Profile Circle with Image
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
-                        val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
-                        val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
-                            "https://logo.clearbit.com/$domain"
-                        } else {
-                            fallbackUrl
+                val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
+                val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                    "https://logo.clearbit.com/$domain"
+                } else {
+                    fallbackUrl
+                }
+                var imageUrl by remember(logoUrl) { mutableStateOf(logoUrl) }
+                coil.compose.AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Sender profile picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    onState = { state ->
+                        if (state is coil.compose.AsyncImagePainter.State.Error && imageUrl != fallbackUrl) {
+                            imageUrl = fallbackUrl
                         }
-                        var imageUrl by remember(logoUrl) { mutableStateOf(logoUrl) }
-                        coil.compose.AsyncImage(
-                            model = imageUrl,
-                            contentDescription = "Sender profile picture",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                            onState = { state ->
-                                if (state is coil.compose.AsyncImagePainter.State.Error && imageUrl != fallbackUrl) {
-                                    imageUrl = fallbackUrl
-                                }
-                            }
-                        )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = mail.senderName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = unreadWeight,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = mail.sender,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            maxLines = 1
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = relativeDateStr,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    if (!mail.isRead) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(GrowwTeal)
-                        )
-                    }
-                }
+                )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            
-            Text(
-                text = mail.subject,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = unreadWeight,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = mail.body,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Footer controls Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Only show short email account badge representing target inbox
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                // Top Row: Sender Name & Date
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val emailShort = mail.accountEmail.substringBefore("@")
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = emailShort,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
+                    Text(
+                        text = mail.senderName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = unreadWeight,
+                        color = unreadColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = relativeDateStr,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = unreadWeight,
+                        color = if (!mail.isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
                 }
 
-                Row {
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Middle Row: Subject and Star
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = mail.subject,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = unreadWeight,
+                        color = unreadColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(
                         onClick = onStarredToggle,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = "Star toggle icon",
-                            tint = if (mail.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                            tint = if (mail.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Bottom Row: Body snippet and Delete
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = mail.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(
                         onClick = onDeleteClick,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Email",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
         }
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
     }
 }
 
@@ -1310,50 +1276,131 @@ fun ComposeTabScreen(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // Source account bind selection
+        // Source account bind selection with profile pic
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
         ) {
-            Text("From: ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.width(8.dp))
-            var fromExpanded by remember { mutableStateOf(false) }
-            Box(modifier = Modifier.weight(1f)) {
-                Button(
-                    onClick = { fromExpanded = true },
-                    modifier = Modifier.fillMaxWidth().height(38.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(selectedFromEmail.ifEmpty { "Select Account Profile" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Default.ArrowDropDown, "Show from Accounts")
+            val activeFromAccount = remember(selectedFromEmail, accounts) {
+                accounts.find { it.email == selectedFromEmail }
+            }
+            val fromProfilePic = activeFromAccount?.profilePictureUrl
+            val fromDisplayName = activeFromAccount?.displayName ?: selectedFromEmail.substringBefore("@")
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!fromProfilePic.isNullOrEmpty()) {
+                    coil.compose.AsyncImage(
+                        model = fromProfilePic,
+                        contentDescription = "From profile picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    val defaultAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(fromDisplayName.ifEmpty { "From" })}&background=00d09c&color=fff&size=96"
+                    coil.compose.AsyncImage(
+                        model = defaultAvatarUrl,
+                        contentDescription = "From default avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
                 }
-                DropdownMenu(expanded = fromExpanded, onDismissRequest = { fromExpanded = false }) {
-                    accounts.forEach { acc ->
-                        DropdownMenuItem(
-                            text = { Text(acc.email) },
-                            onClick = {
-                                selectedFromEmail = acc.email
-                                fromExpanded = false
-                            }
-                        )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                var fromExpanded by remember { mutableStateOf(false) }
+                Text("From:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { fromExpanded = true },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = selectedFromEmail.ifEmpty { "Select Account Profile" },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Icon(Icons.Default.ArrowDropDown, "Show from Accounts")
+                        }
+                    }
+                    DropdownMenu(expanded = fromExpanded, onDismissRequest = { fromExpanded = false }) {
+                        accounts.forEach { acc ->
+                            DropdownMenuItem(
+                                text = { Text(acc.email) },
+                                onClick = {
+                                    selectedFromEmail = acc.email
+                                    fromExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Target field
-        OutlinedTextField(
-            value = recipient,
-            onValueChange = { recipient = it },
-            label = { Text("To") },
-            placeholder = { Text("recipient-profile@email.com") },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("compose_recipient_input"),
-            shape = RoundedCornerShape(10.dp)
-        )
+        // Target field with profile pic
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        ) {
+            val toDomain = recipient.substringAfter("@", "").substringBefore(">").trim().lowercase()
+            val toFallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(recipient.ifEmpty { "To" })}&background=1A73E8&color=fff&size=96"
+            val toLogoUrl = if (toDomain.isNotEmpty() && !toDomain.endsWith("gmail.com") && !toDomain.endsWith("yahoo.com") && !toDomain.endsWith("outlook.com") && toDomain.contains(".")) {
+                "https://logo.clearbit.com/$toDomain"
+            } else {
+                toFallbackUrl
+            }
+            var toImageUrl by remember(toLogoUrl) { mutableStateOf(toLogoUrl) }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                coil.compose.AsyncImage(
+                    model = toImageUrl,
+                    contentDescription = "Recipient profile picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    onState = { state ->
+                        if (state is coil.compose.AsyncImagePainter.State.Error && toImageUrl != toFallbackUrl) {
+                            toImageUrl = toFallbackUrl
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            OutlinedTextField(
+                value = recipient,
+                onValueChange = { recipient = it },
+                label = { Text("To") },
+                placeholder = { Text("recipient-profile@email.com") },
+                modifier = Modifier.weight(1f).testTag("compose_recipient_input"),
+                shape = RoundedCornerShape(8.dp),
+                singleLine = true
+            )
+        }
 
         // Subject field
         OutlinedTextField(
@@ -1361,36 +1408,10 @@ fun ComposeTabScreen(
             onValueChange = { subject = it },
             label = { Text("Subject") },
             placeholder = { Text("Message header title...") },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("compose_subject_input"),
-            shape = RoundedCornerShape(10.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("compose_subject_input"),
+            shape = RoundedCornerShape(8.dp),
+            singleLine = true
         )
-
-        // Categories drop select mock
-        var categoryExpanded by remember { mutableStateOf(false) }
-        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-            OutlinedButton(
-                onClick = { categoryExpanded = true },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Category: $category")
-                    Icon(Icons.Default.ArrowDropDown, "Select categories")
-                }
-            }
-            DropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
-                listOf("Primary", "Updates", "Social", "Promotions").forEach { cat ->
-                    DropdownMenuItem(text = { Text(cat) }, onClick = {
-                        category = cat
-                        categoryExpanded = false
-                    })
-                }
-            }
-        }
 
         // Email Body Content Area input
         OutlinedTextField(
