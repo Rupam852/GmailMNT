@@ -869,7 +869,11 @@ fun InboxTabScreen(
                     val isAllSelected = selectedAccount == "All" || selectedAccount == null
                     FilterChip(
                         selected = isAllSelected,
-                        onClick = { viewModel.selectedAccount.value = "All" },
+                        onClick = {
+                            viewModel.selectedAccount.value = "All"
+                            viewModel.selectedCategory.value = "All"
+                            viewModel.selectedTag.value = "All"
+                        },
                         label = { Text("All", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
@@ -885,7 +889,11 @@ fun InboxTabScreen(
                     val isSelected = selectedAccount == account.email
                     FilterChip(
                         selected = isSelected,
-                        onClick = { viewModel.selectedAccount.value = account.email },
+                        onClick = {
+                            viewModel.selectedAccount.value = account.email
+                            viewModel.selectedCategory.value = "All"
+                            viewModel.selectedTag.value = "All"
+                        },
                         label = { Text(account.email, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = GrowwTeal.copy(alpha = 0.15f),
@@ -1107,19 +1115,27 @@ fun EmailMessageRowItem(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(GrowwTeal.copy(alpha = 0.25f), FocusColor(mail.category))
-                                )
-                            ),
+                            .background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
-                        val senderAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
+                        val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                            "https://logo.clearbit.com/$domain"
+                        } else {
+                            fallbackUrl
+                        }
+                        var imageUrl by remember(logoUrl) { mutableStateOf(logoUrl) }
                         coil.compose.AsyncImage(
-                            model = senderAvatarUrl,
+                            model = imageUrl,
                             contentDescription = "Sender profile picture",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            onState = { state ->
+                                if (state is coil.compose.AsyncImagePainter.State.Error && imageUrl != fallbackUrl) {
+                                    imageUrl = fallbackUrl
+                                }
+                            }
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -1756,15 +1772,27 @@ fun EmailDetailDialog(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(GrowwTeal.copy(alpha = 0.12f)),
+                            .background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
-                        val senderAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        val fallbackUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(mail.senderName)}&background=00d09c&color=fff&size=128"
+                        val domain = mail.sender.substringAfter("@", "").substringBefore(">").trim().lowercase()
+                        val logoUrl = if (domain.isNotEmpty() && !domain.endsWith("gmail.com") && !domain.endsWith("yahoo.com") && !domain.endsWith("outlook.com") && domain.contains(".")) {
+                            "https://logo.clearbit.com/$domain"
+                        } else {
+                            fallbackUrl
+                        }
+                        var imageUrlDetails by remember(logoUrl) { mutableStateOf(logoUrl) }
                         coil.compose.AsyncImage(
-                            model = senderAvatarUrl,
+                            model = imageUrlDetails,
                             contentDescription = "Sender profile picture details",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            onState = { state ->
+                                if (state is coil.compose.AsyncImagePainter.State.Error && imageUrlDetails != fallbackUrl) {
+                                    imageUrlDetails = fallbackUrl
+                                }
+                            }
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -1890,6 +1918,7 @@ fun EmailDetailDialog(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

@@ -9,6 +9,9 @@ import com.example.api.Part
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -169,7 +172,7 @@ class EmailRepository(private val context: Context) {
             // If OAuth token has expired, we attempt refreshing.
             val list = mutableListOf<EmailMessage>()
             try {
-                val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10"
+                val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25"
                 val request = Request.Builder()
                     .url(url)
                     .header("Authorization", "Bearer ${account.accessToken}")
@@ -180,14 +183,16 @@ class EmailRepository(private val context: Context) {
                         val stringRes = response.body?.string() ?: ""
                         val messagesArray = JSONObject(stringRes).optJSONArray("messages")
                         if (messagesArray != null) {
-                            for (i in 0 until messagesArray.length()) {
-                                val msgObj = messagesArray.getJSONObject(i)
-                                val msgId = msgObj.getString("id")
-                                val detailsMsg = fetchGmailDetails(msgId, account.accessToken, accountEmail)
-                                if (detailsMsg != null) {
-                                    list.add(detailsMsg)
-                                }
+                            val detailsList = kotlinx.coroutines.coroutineScope {
+                                (0 until messagesArray.length()).map { index ->
+                                    val msgObj = messagesArray.getJSONObject(index)
+                                    val msgId = msgObj.getString("id")
+                                    async {
+                                        fetchGmailDetails(msgId, account.accessToken, accountEmail)
+                                    }
+                                }.awaitAll()
                             }
+                            detailsList.filterNotNull().forEach { list.add(it) }
                         }
                     } else if (response.code == 401) {
                         // Attempt token refresh and try once
