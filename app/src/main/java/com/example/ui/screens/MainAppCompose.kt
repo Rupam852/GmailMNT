@@ -441,6 +441,36 @@ fun DashboardScreen(
         }
     }
 
+    val onArchiveMail: (EmailMessage) -> Unit = { mail ->
+        viewModel.archiveMail(mail.id)
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "Email archived",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.unarchiveMail(mail.id)
+            }
+        }
+    }
+
+    val onUnarchiveMail: (EmailMessage) -> Unit = { mail ->
+        viewModel.unarchiveMail(mail.id)
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "Email unarchived",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.archiveMail(mail.id)
+            }
+        }
+    }
+
     if (isWideScreen) {
         Box(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -690,7 +720,9 @@ fun DashboardScreen(
                                 viewModel.selectMailId(msgId)
                                 showDetailDialog = true
                             },
-                            onDeleteMail = onDeleteMail
+                            onDeleteMail = onDeleteMail,
+                            onArchiveMail = onArchiveMail,
+                            onUnarchiveMail = onUnarchiveMail
                         )
                         1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
                             selectedTab = 0
@@ -759,7 +791,9 @@ fun DashboardScreen(
                             viewModel.selectMailId(msgId)
                             showDetailDialog = true
                         },
-                        onDeleteMail = onDeleteMail
+                        onDeleteMail = onDeleteMail,
+                        onArchiveMail = onArchiveMail,
+                        onUnarchiveMail = onUnarchiveMail
                     )
                     1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
                         selectedTab = 0
@@ -802,7 +836,9 @@ fun DashboardScreen(
 fun InboxTabScreen(
     viewModel: EmailViewModel,
     onMailClick: (String) -> Unit,
-    onDeleteMail: (EmailMessage) -> Unit
+    onDeleteMail: (EmailMessage) -> Unit,
+    onArchiveMail: (EmailMessage) -> Unit,
+    onUnarchiveMail: (EmailMessage) -> Unit
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
@@ -1154,6 +1190,13 @@ fun InboxTabScreen(
                             if (value == SwipeToDismissBoxValue.EndToStart) {
                                 onDeleteMail(mail)
                                 true
+                            } else if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                if (selectedFolder.uppercase() == "ARCHIVE") {
+                                    onUnarchiveMail(mail)
+                                } else {
+                                    onArchiveMail(mail)
+                                }
+                                true
                             } else {
                                 false
                             }
@@ -1161,23 +1204,36 @@ fun InboxTabScreen(
                     )
                     SwipeToDismissBox(
                         state = dismissState,
-                        enableDismissFromStartToEnd = false,
+                        enableDismissFromStartToEnd = true,
                         enableDismissFromEndToStart = true,
                         backgroundContent = {
                             val color = when (dismissState.dismissDirection) {
                                 SwipeToDismissBoxValue.EndToStart -> AlertRed
+                                SwipeToDismissBoxValue.StartToEnd -> GrowwTeal
                                 else -> Color.Transparent
+                            }
+                            val alignment = when (dismissState.dismissDirection) {
+                                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                                else -> Alignment.Center
+                            }
+                            val icon = when (dismissState.dismissDirection) {
+                                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                                SwipeToDismissBoxValue.StartToEnd -> {
+                                    if (selectedFolder.uppercase() == "ARCHIVE") Icons.Default.MailOutline else Icons.Default.Email
+                                }
+                                else -> Icons.Default.Email
                             }
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(color)
                                     .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterEnd
+                                contentAlignment = alignment
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Icon",
+                                    imageVector = icon,
+                                    contentDescription = "Swipe Action Icon",
                                     tint = Color.White
                                 )
                             }

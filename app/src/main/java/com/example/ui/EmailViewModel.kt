@@ -282,6 +282,30 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun archiveMail(id: String) {
+        viewModelScope.launch {
+            val email = repository.getMessageById(id)
+            if (email != null) {
+                repository.updateMessageLabel(id, "ARCHIVE")
+                if (!email.accountEmail.lowercase().contains("simulated")) {
+                    repository.modifyGmailLabels(email.accountEmail, email.id, emptyList(), listOf("INBOX"))
+                }
+            }
+        }
+    }
+
+    fun unarchiveMail(id: String) {
+        viewModelScope.launch {
+            val email = repository.getMessageById(id)
+            if (email != null) {
+                repository.updateMessageLabel(id, "INBOX")
+                if (!email.accountEmail.lowercase().contains("simulated")) {
+                    repository.modifyGmailLabels(email.accountEmail, email.id, listOf("INBOX"), emptyList())
+                }
+            }
+        }
+    }
+
     fun emptyTrash() {
         viewModelScope.launch {
             repository.emptyTrash()
