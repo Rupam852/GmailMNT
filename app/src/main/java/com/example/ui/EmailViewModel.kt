@@ -90,10 +90,10 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (filter.category != "All") {
                 list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
             } else {
-                // Show Primary, Updates, Social, Forums. Exclude only Promotions from All Inbox feed.
+                // Show only Primary, Updates, Social, Forums in All Inbox feed.
                 list = list.filter {
                     val cat = it.category.uppercase()
-                    cat != "PROMOTIONS"
+                    cat == "PRIMARY" || cat == "UPDATES" || cat == "SOCIAL" || cat == "FORUMS"
                 }
             }
         }
