@@ -28,7 +28,7 @@ class PreferenceManager(context: Context) {
         set(value) = prefs.edit().putString(KEY_GEMINI_API_KEY, value).apply()
 
     var isDarkMode: Boolean
-        get() = prefs.getBoolean(KEY_DARK_MODE, false)
+        get() = prefs.getBoolean(KEY_DARK_MODE, true)
         set(value) = prefs.edit().putBoolean(KEY_DARK_MODE, value).apply()
 
     var isGetStartedCompleted: Boolean
