@@ -157,22 +157,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val isGeneratingDraft = MutableStateFlow(false)
 
     init {
-        // Pre-create simulated accounts if empty, and trigger sync.
-        viewModelScope.launch {
-            val accountsList = repository.allAccounts.first()
-            if (accountsList.isEmpty()) {
-                // Add a default simulated email account for rich demo capability
-                val demoAccount = EmailAccount(
-                    email = "simulated.user@gmail.com",
-                    displayName = "Simulated User",
-                    provider = "Gmail",
-                    accessToken = "",
-                    refreshToken = "",
-                    expiresAt = 0L
-                )
-                repository.addAccount(demoAccount)
-            }
-        }
+        // No default simulated account is created to ensure a clean first-time user experience.
     }
 
     // Toggle and setting operations
@@ -317,7 +302,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
             val targetAccount = selectedAccount.value.takeIf { it != "All" } 
                 ?: accounts.value.firstOrNull()?.email 
-                ?: "simulated.user@gmail.com"
+                ?: return@launch
 
             val incomingMessage = EmailMessage(
                 id = "incoming_${UUID.randomUUID()}",
