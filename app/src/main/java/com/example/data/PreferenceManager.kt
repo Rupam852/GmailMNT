@@ -40,7 +40,7 @@ class PreferenceManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
 
     var renderBackendUrl: String
-        get() = prefs.getString(KEY_RENDER_BACKEND_URL, "https://gemini-mail-backend-1.onrender.com") ?: "https://gemini-mail-backend-1.onrender.com"
+        get() = prefs.getString(KEY_RENDER_BACKEND_URL, "https://gmailmnt.onrender.com") ?: "https://gmailmnt.onrender.com"
         set(value) = prefs.edit().putString(KEY_RENDER_BACKEND_URL, value).apply()
 
     var draftRecipient: String
