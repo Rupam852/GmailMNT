@@ -528,47 +528,7 @@ fun DashboardScreen(
                         }
                     }
 
-                    if (selectedFolder.uppercase() == "INBOX") {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "CATEGORIES",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
 
-                        val categoriesList = listOf(
-                            "All Inbox" to "All",
-                            "Primary" to "Primary",
-                            "Updates" to "Updates",
-                            "Social" to "Social",
-                            "Promotions" to "Promotions"
-                        )
-
-                        categoriesList.forEach { (name, catCode) ->
-                            val isCatSelected = (selectedTab == 0 && selectedCategory == catCode && selectedTag == "All")
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isCatSelected) GrowwTeal.copy(alpha = 0.08f) else Color.Transparent)
-                                    .clickable {
-                                        selectedTab = 0
-                                        viewModel.selectedCategory.value = catCode
-                                        viewModel.selectedTag.value = "All"
-                                    }
-                                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isCatSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -851,11 +811,7 @@ fun InboxTabScreen(
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
-
     var longPressedMail by remember { mutableStateOf<EmailMessage?>(null) }
-
-    val categories = listOf("All", "Primary", "Updates", "Social", "Promotions")
-    val sorts = listOf("Newest", "Oldest", "Starred")
 
     Column(
         modifier = Modifier
@@ -997,37 +953,7 @@ fun InboxTabScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
 
-        // Category Selector Chips Row (only visible if selectedFolder == "INBOX")
-        AnimatedVisibility(visible = selectedFolder.uppercase() == "INBOX") {
-            Column {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(categories) { cat ->
-                        val isCatSelected = selectedCategory == cat
-                        FilterChip(
-                            selected = isCatSelected,
-                            onClick = {
-                                viewModel.selectedCategory.value = cat
-                                viewModel.selectedTag.value = "All"
-                            },
-                            label = { Text(cat, fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = GrowwTeal.copy(alpha = 0.12f),
-                                selectedLabelColor = GrowwTeal
-                            ),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.height(30.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
 
         // Trash Quick Actions Banner
         AnimatedVisibility(visible = selectedFolder.uppercase() == "TRASH" && filteredMessages.isNotEmpty()) {

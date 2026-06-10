@@ -85,9 +85,12 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             list = list.filter { it.accountEmail == filter.accountEmail }
         }
 
-        // 2. Filter by Category
-        if (folder.uppercase() == "INBOX" && filter.category != "All") {
-            list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
+        // 2. Exclude non-primary categories in INBOX (Updates, Social, Promotions)
+        if (folder.uppercase() == "INBOX") {
+            list = list.filter {
+                val cat = it.category.uppercase()
+                cat != "UPDATES" && cat != "SOCIAL" && cat != "PROMOTIONS"
+            }
         }
 
         // 3. Filter by Custom Tag
