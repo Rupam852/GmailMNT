@@ -9,6 +9,7 @@ import com.example.util.NotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 class EmailViewModel(application: Application) : AndroidViewModel(application) {
@@ -223,21 +224,39 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         category: String = "Primary"
     ) {
         viewModelScope.launch {
-            val sentMsg = EmailMessage(
-                id = "composed_${UUID.randomUUID()}",
-                accountEmail = fromEmail,
-                senderName = "Me",
-                sender = fromEmail,
-                recipient = toEmail,
-                subject = subject,
-                body = body,
-                timestamp = System.currentTimeMillis(),
-                isRead = true,
-                isStarred = false,
-                label = "SENT",
-                category = category
-            )
-            repository.insertMessage(sentMsg)
+            val success = repository.sendEmail(fromEmail, toEmail, subject, body)
+            if (success) {
+                val sentMsg = EmailMessage(
+                    id = "composed_${UUID.randomUUID()}",
+                    accountEmail = fromEmail,
+                    senderName = "Me",
+                    sender = fromEmail,
+                    recipient = toEmail,
+                    subject = subject,
+                    body = body,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = true,
+                    isStarred = false,
+                    label = "SENT",
+                    category = category
+                )
+                repository.insertMessage(sentMsg)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        getApplication(),
+                        "Email sent successfully!",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        getApplication(),
+                        "Failed to send email. Check connection or credentials.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
     }
 

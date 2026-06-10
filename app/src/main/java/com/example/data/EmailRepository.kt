@@ -422,4 +422,62 @@ class EmailRepository(private val context: Context) {
             "AI Assistant Generation Error: ${e.localizedMessage ?: "Connection Timeout"}"
         }
     }
+
+    suspend fun sendEmail(fromEmail: String, toEmail: String, subject: String, body: String): Boolean = withContext(Dispatchers.IO) {
+        val account = dao.getAccountByEmail(fromEmail)
+        
+        // If it's a mock/simulated account (or no account exists), we treat it as successful mock send.
+        if (account == null || account.email.lowercase().contains("simulated") || account.refreshToken.isEmpty()) {
+            Log.d("EmailRepository", "Mock email sent locally for simulated account: $fromEmail")
+            return@withContext true
+        }
+
+        // Real account: Refresh token if expiring
+        val pref = PreferenceManager(context)
+        val backendUrl = pref.renderBackendUrl
+        if (account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+            refreshAccessToken(fromEmail, backendUrl)
+        }
+
+        val updatedAccount = dao.getAccountByEmail(fromEmail) ?: return@withContext false
+
+        // Build RFC 822 / MIME format message
+        val mimeMessage = "From: $fromEmail\r\n" +
+                "To: $toEmail\r\n" +
+                "Subject: $subject\r\n" +
+                "Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
+                body
+
+        val base64Raw = android.util.Base64.encodeToString(
+            mimeMessage.toByteArray(Charsets.UTF_8),
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+        ).trim()
+
+        val jsonBody = JSONObject().apply {
+            put("raw", base64Raw)
+        }.toString()
+
+        val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+            .header("Authorization", "Bearer ${updatedAccount.accessToken}")
+            .post(requestBody)
+            .build()
+
+        try {
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    Log.d("EmailRepository", "Gmail sent successfully via OAuth API.")
+                    true
+                } else {
+                    val errBody = response.body?.string() ?: ""
+                    Log.e("EmailRepository", "Gmail send failed: ${response.code} - $errBody")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Exception in sendEmail", e)
+            false
+        }
+    }
 }
