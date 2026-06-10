@@ -276,10 +276,8 @@ class EmailRepository(private val context: Context) {
                     val internalDate = json.optLong("internalDate", System.currentTimeMillis())
                     val snippet = json.optString("snippet", "")
 
-                    var bodyContent = extractMessageBody(payload)
-                    if (bodyContent.isBlank()) {
-                        bodyContent = snippet
-                    }
+                    val plainBody = extractMessageBody(payload).takeIf { it.isNotEmpty() } ?: snippet
+                    val htmlBody = extractHtmlBody(payload)
 
                     return EmailMessage(
                         id = msgId,
@@ -288,9 +286,10 @@ class EmailRepository(private val context: Context) {
                         sender = from,
                         recipient = accountEmail,
                         subject = subject,
-                        body = bodyContent,
+                        body = plainBody,
                         timestamp = internalDate,
-                        category = "Primary"
+                        category = "Primary",
+                        htmlBody = htmlBody
                     )
                 }
             }
@@ -301,24 +300,21 @@ class EmailRepository(private val context: Context) {
     }
 
     private fun extractMessageBody(payload: JSONObject): String {
+        val mimeType = payload.optString("mimeType", "")
         val bodyObj = payload.optJSONObject("body")
         val directData = bodyObj?.optString("data", "") ?: ""
-        if (directData.isNotEmpty()) {
+        if (mimeType.equals("text/plain", ignoreCase = true) && directData.isNotEmpty()) {
             return decodeBase64Url(directData)
         }
 
         val parts = payload.optJSONArray("parts")
         if (parts != null) {
-            return parseParts(parts)
+            return findPlainPart(parts)
         }
-
         return ""
     }
 
-    private fun parseParts(parts: org.json.JSONArray): String {
-        var plainText = ""
-        var htmlText = ""
-
+    private fun findPlainPart(parts: org.json.JSONArray): String {
         for (i in 0 until parts.length()) {
             val part = parts.getJSONObject(i)
             val mimeType = part.optString("mimeType", "")
@@ -326,27 +322,51 @@ class EmailRepository(private val context: Context) {
             val data = body?.optString("data", "") ?: ""
 
             if (mimeType.equals("text/plain", ignoreCase = true) && data.isNotEmpty()) {
-                plainText = decodeBase64Url(data)
-            } else if (mimeType.equals("text/html", ignoreCase = true) && data.isNotEmpty()) {
-                htmlText = decodeBase64Url(data)
+                return decodeBase64Url(data)
             } else {
                 val nestedParts = part.optJSONArray("parts")
                 if (nestedParts != null) {
-                    val nestedText = parseParts(nestedParts)
-                    if (nestedText.isNotEmpty()) {
-                        plainText = nestedText
-                    }
+                    val res = findPlainPart(nestedParts)
+                    if (res.isNotEmpty()) return res
                 }
             }
         }
-
-        if (plainText.isNotEmpty()) {
-            return plainText
-        }
-        if (htmlText.isNotEmpty()) {
-            return htmlText.replace(Regex("<[^>]*>"), "").replace("&nbsp;", " ").trim()
-        }
         return ""
+    }
+
+    private fun extractHtmlBody(payload: JSONObject): String? {
+        val mimeType = payload.optString("mimeType", "")
+        val bodyObj = payload.optJSONObject("body")
+        val directData = bodyObj?.optString("data", "") ?: ""
+        if (mimeType.equals("text/html", ignoreCase = true) && directData.isNotEmpty()) {
+            return decodeBase64Url(directData)
+        }
+
+        val parts = payload.optJSONArray("parts")
+        if (parts != null) {
+            return findHtmlPart(parts)
+        }
+        return null
+    }
+
+    private fun findHtmlPart(parts: org.json.JSONArray): String? {
+        for (i in 0 until parts.length()) {
+            val part = parts.getJSONObject(i)
+            val mimeType = part.optString("mimeType", "")
+            val body = part.optJSONObject("body")
+            val data = body?.optString("data", "") ?: ""
+
+            if (mimeType.equals("text/html", ignoreCase = true) && data.isNotEmpty()) {
+                return decodeBase64Url(data)
+            } else {
+                val nestedParts = part.optJSONArray("parts")
+                if (nestedParts != null) {
+                    val res = findHtmlPart(nestedParts)
+                    if (res != null) return res
+                }
+            }
+        }
+        return null
     }
 
     private fun decodeBase64Url(base64Str: String): String {

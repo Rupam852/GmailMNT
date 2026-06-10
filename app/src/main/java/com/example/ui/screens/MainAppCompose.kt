@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -1713,6 +1714,7 @@ fun EmailDetailDialog(
     onDismiss: () -> Unit
 ) {
     var showReplyComposer by remember { mutableStateOf(false) }
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1779,20 +1781,72 @@ fun EmailDetailDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Message Text Content
+                // Message Text Content (HTML WebView or fallback Plain Text)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
                         .padding(vertical = 8.dp)
                 ) {
-                    Text(
-                        mail.body, 
-                        style = MaterialTheme.typography.bodyMedium, 
-                        lineHeight = 22.sp, 
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                    )
+                    val html = mail.htmlBody
+                    if (!html.isNullOrBlank()) {
+                        AndroidView(
+                            factory = { ctx ->
+                                android.webkit.WebView(ctx).apply {
+                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    webViewClient = android.webkit.WebViewClient()
+                                    settings.javaScriptEnabled = true
+                                    settings.loadWithOverviewMode = true
+                                    settings.useWideViewPort = true
+                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                }
+                            },
+                            update = { webView ->
+                                val formattedHtml = if (isDarkMode) {
+                                    """
+                                    <html>
+                                    <head>
+                                    <style>
+                                    body {
+                                        color: #E2E2E6;
+                                        background-color: transparent;
+                                        font-family: sans-serif;
+                                        line-height: 1.5;
+                                    }
+                                    a {
+                                        color: #8AB4F8;
+                                    }
+                                    </style>
+                                    </head>
+                                    <body>
+                                    $html
+                                    </body>
+                                    </html>
+                                    """.trimIndent()
+                                } else {
+                                    html
+                                }
+                                webView.loadDataWithBaseURL(null, formattedHtml, "text/html", "UTF-8", null)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                mail.body, 
+                                style = MaterialTheme.typography.bodyMedium, 
+                                lineHeight = 22.sp, 
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

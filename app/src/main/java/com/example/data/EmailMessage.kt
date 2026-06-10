@@ -18,5 +18,6 @@ data class EmailMessage(
     val isStarred: Boolean = false,
     val label: String = "INBOX", // INBOX, SENT, DRAFT, TRASH
     val category: String = "Primary", // Primary, Updates, Social, Promotions, Forums
-    val tagsString: String = ""
+    val tagsString: String = "",
+    val htmlBody: String? = null
 ) : Serializable
