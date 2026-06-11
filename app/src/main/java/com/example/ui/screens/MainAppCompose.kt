@@ -463,6 +463,14 @@ fun DashboardScreen(
     activity: FragmentActivity
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Inbox, 1: Compose, 2: Settings
+    var inboxLoaded by remember { mutableStateOf(false) }
+    var composeLoaded by remember { mutableStateOf(false) }
+    var settingsLoaded by remember { mutableStateOf(false) }
+
+    if (selectedTab == 0) inboxLoaded = true
+    if (selectedTab == 1) composeLoaded = true
+    if (selectedTab == 2) settingsLoaded = true
+
     var showDetailDialog by remember { mutableStateOf(false) }
     
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -808,21 +816,37 @@ fun DashboardScreen(
                         .weight(1f)
                         .fillMaxHeight()
                 ) {
-                    when (selectedTab) {
-                        0 -> InboxTabScreen(
-                            viewModel = viewModel,
-                            onMailClick = { msgId ->
-                                viewModel.selectMailId(msgId)
-                                showDetailDialog = true
-                            },
-                            onDeleteMail = onDeleteMail,
-                            onArchiveMail = onArchiveMail,
-                            onUnarchiveMail = onUnarchiveMail
-                        )
-                        1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                            selectedTab = 0
-                        })
-                        2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                    if (inboxLoaded) {
+                        Box(
+                            modifier = if (selectedTab == 0) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                        ) {
+                            InboxTabScreen(
+                                viewModel = viewModel,
+                                onMailClick = { msgId ->
+                                    viewModel.selectMailId(msgId)
+                                    showDetailDialog = true
+                                },
+                                onDeleteMail = onDeleteMail,
+                                onArchiveMail = onArchiveMail,
+                                onUnarchiveMail = onUnarchiveMail
+                            )
+                        }
+                    }
+                    if (composeLoaded) {
+                        Box(
+                            modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                        ) {
+                            ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                                selectedTab = 0
+                            })
+                        }
+                    }
+                    if (settingsLoaded) {
+                        Box(
+                            modifier = if (selectedTab == 2) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                        ) {
+                            SettingsTabScreen(viewModel = viewModel, activity = activity)
+                        }
                     }
                 }
             }
@@ -879,21 +903,37 @@ fun DashboardScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                when (selectedTab) {
-                    0 -> InboxTabScreen(
-                        viewModel = viewModel,
-                        onMailClick = { msgId ->
-                            viewModel.selectMailId(msgId)
-                            showDetailDialog = true
-                        },
-                        onDeleteMail = onDeleteMail,
-                        onArchiveMail = onArchiveMail,
-                        onUnarchiveMail = onUnarchiveMail
-                    )
-                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                        selectedTab = 0
-                    })
-                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                if (inboxLoaded) {
+                    Box(
+                        modifier = if (selectedTab == 0) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                    ) {
+                        InboxTabScreen(
+                            viewModel = viewModel,
+                            onMailClick = { msgId ->
+                                viewModel.selectMailId(msgId)
+                                showDetailDialog = true
+                            },
+                            onDeleteMail = onDeleteMail,
+                            onArchiveMail = onArchiveMail,
+                            onUnarchiveMail = onUnarchiveMail
+                        )
+                    }
+                }
+                if (composeLoaded) {
+                    Box(
+                        modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                    ) {
+                        ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                            selectedTab = 0
+                        })
+                    }
+                }
+                if (settingsLoaded) {
+                    Box(
+                        modifier = if (selectedTab == 2) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                    ) {
+                        SettingsTabScreen(viewModel = viewModel, activity = activity)
+                    }
                 }
             }
         }
@@ -2014,6 +2054,7 @@ fun SettingsTabScreen(
 ) {
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+    val isNotificationsEnabled by viewModel.isNotificationsEnabled.collectAsState()
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val renderBackendUrl by viewModel.renderBackendUrl.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
@@ -2205,7 +2246,7 @@ fun SettingsTabScreen(
 
 
         // 5. Native hardware preference profiles
-        Text("SECURITY & SYSTEM OPTION", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Text("SECURITY & NOTIFICATION OPTIONS", fontWeight = FontWeight.Bold, color = GrowwTeal, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             shape = RoundedCornerShape(14.dp),
@@ -2219,6 +2260,18 @@ fun SettingsTabScreen(
                         Switch(
                             checked = isBiometricEnabled,
                             onCheckedChange = { viewModel.setBiometric(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
+                        )
+                    }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                ListItem(
+                    headlineContent = { Text("Email Notifications", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Enables background sync notifications when new emails are received") },
+                    trailingContent = {
+                        Switch(
+                            checked = isNotificationsEnabled,
+                            onCheckedChange = { viewModel.setNotificationsEnabled(it) },
                             colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
                         )
                     }

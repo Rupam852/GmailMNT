@@ -25,6 +25,10 @@ object NotificationHelper {
     }
 
     fun showEmailNotification(context: Context, emailId: String, senderName: String, subject: String, bodySnippet: String) {
+        val preferences = com.example.data.PreferenceManager(context)
+        if (!preferences.isNotificationsEnabled) {
+            return
+        }
         createNotificationChannel(context)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)

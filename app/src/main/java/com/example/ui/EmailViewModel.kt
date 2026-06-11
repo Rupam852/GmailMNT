@@ -21,6 +21,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     // Local States loaded from Preferences
     val isDarkMode = MutableStateFlow(preferences.isDarkMode)
     val isBiometricEnabled = MutableStateFlow(preferences.isBiometricEnabled)
+    val isNotificationsEnabled = MutableStateFlow(preferences.isNotificationsEnabled)
     val geminiApiKey = MutableStateFlow(preferences.geminiApiKey)
     val renderBackendUrl = MutableStateFlow(preferences.renderBackendUrl)
     val isGetStartedCompleted = MutableStateFlow(preferences.isGetStartedCompleted)
@@ -229,6 +230,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     fun setBiometric(enabled: Boolean) {
         preferences.isBiometricEnabled = enabled
         isBiometricEnabled.value = enabled
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        preferences.isNotificationsEnabled = enabled
+        isNotificationsEnabled.value = enabled
     }
 
     fun setGeminiApiKey(key: String) {
