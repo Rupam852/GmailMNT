@@ -907,6 +907,7 @@ fun InboxTabScreen(
     val selectedAccount by viewModel.selectedAccount.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
@@ -1227,8 +1228,8 @@ fun InboxTabScreen(
 
         // 5. Emails Scrollable List View with pulsing Skeleton Loaders and Pull-To-Refresh
         androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-            isRefreshing = isLoading && filteredMessages.isNotEmpty(),
-            onRefresh = { viewModel.triggerSyncAll() },
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.triggerSyncAll(isManual = true) },
             modifier = Modifier.weight(1f).fillMaxWidth()
         ) {
             if (isLoading && filteredMessages.isEmpty()) {

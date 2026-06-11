@@ -197,6 +197,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     // State indicators
     val isLoading = MutableStateFlow(false)
+    val isRefreshing = MutableStateFlow(false)
     val geminiResponse = MutableStateFlow("")
     val isGeneratingDraft = MutableStateFlow(false)
 
@@ -251,6 +252,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     fun markAsRead(id: String, read: Boolean = true) {
         viewModelScope.launch {
             repository.updateMessageReadStatus(id, read)
+            if (read) {
+                com.example.util.NotificationHelper.cancelNotification(getApplication(), id)
+            }
             val msg = repository.getMessageById(id)
             if (msg != null && !msg.accountEmail.lowercase().contains("simulated")) {
                 val addLabels = if (read) emptyList() else listOf("UNREAD")
@@ -265,6 +269,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             repository.markAllMessagesReadStatus(read)
             val currentMessages = filteredMessages.value
             currentMessages.forEach { msg ->
+                if (read) {
+                    com.example.util.NotificationHelper.cancelNotification(getApplication(), msg.id)
+                }
                 if (msg.isRead != read && !msg.accountEmail.lowercase().contains("simulated")) {
                     launch {
                         val addLabels = if (read) emptyList() else listOf("UNREAD")
@@ -462,9 +469,17 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Manual or scheduled trigger syncing
-    fun triggerSyncAll() {
+    fun triggerSyncAll(isManual: Boolean = false) {
         viewModelScope.launch {
-            isLoading.value = true
+            if (isManual) {
+                isRefreshing.value = true
+            } else {
+                // Background/periodic sync: only show isLoading if we don't have messages yet
+                val currentMessages = repository.allMessages.first()
+                if (currentMessages.isEmpty()) {
+                    isLoading.value = true
+                }
+            }
             try {
                 // If the access token is expiring soon, trigger background Render renew
                 val activeAccounts = repository.allAccounts.first()
@@ -477,6 +492,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("ViewModel", "Sync Error", e)
             } finally {
+                isRefreshing.value = false
                 isLoading.value = false
             }
         }
@@ -521,6 +537,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             // Deliver actual Android operating system notification
             NotificationHelper.showEmailNotification(
                 getApplication(),
+                incomingMessage.id,
                 incomingMessage.senderName,
                 incomingMessage.subject,
                 incomingMessage.body

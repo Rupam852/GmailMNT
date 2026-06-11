@@ -325,6 +325,7 @@ class EmailRepository(private val context: Context) {
             if (!msg.isRead) {
                 com.example.util.NotificationHelper.showEmailNotification(
                     context,
+                    msg.id,
                     msg.senderName,
                     msg.subject,
                     msg.body

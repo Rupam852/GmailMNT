@@ -24,7 +24,7 @@ object NotificationHelper {
         }
     }
 
-    fun showEmailNotification(context: Context, senderName: String, subject: String, bodySnippet: String) {
+    fun showEmailNotification(context: Context, emailId: String, senderName: String, subject: String, bodySnippet: String) {
         createNotificationChannel(context)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -37,9 +37,19 @@ object NotificationHelper {
 
         try {
             val notificationManager = NotificationManagerCompat.from(context)
-            notificationManager.notify((System.currentTimeMillis() % 100000).toInt(), builder.build())
+            // Use stable hashcode of emailId as notification ID so we can cancel it when read!
+            notificationManager.notify(emailId.hashCode(), builder.build())
         } catch (e: SecurityException) {
             // Under API 33+ if POST_NOTIFICATIONS runtime permission is missing
+            e.printStackTrace()
+        }
+    }
+
+    fun cancelNotification(context: Context, emailId: String) {
+        try {
+            val notificationManager = NotificationManagerCompat.from(context)
+            notificationManager.cancel(emailId.hashCode())
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
