@@ -6,20 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 class PreferenceManager(context: Context) {
-    private val prefs: SharedPreferences = try {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            "gemini_mail_prefs_secure",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    } catch (e: Exception) {
-        context.getSharedPreferences("gemini_mail_prefs_secure", Context.MODE_PRIVATE)
-    }
+    private val prefs: SharedPreferences = getPrefs(context)
 
     companion object {
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"
@@ -33,6 +20,33 @@ class PreferenceManager(context: Context) {
         private const val KEY_DRAFT_SUBJECT = "draft_subject"
         private const val KEY_DRAFT_BODY = "draft_body"
         private const val KEY_DRAFT_CATEGORY = "draft_category"
+
+        @Volatile
+        private var sharedPrefsInstance: SharedPreferences? = null
+
+        private fun getPrefs(context: Context): SharedPreferences {
+            return sharedPrefsInstance ?: synchronized(this) {
+                sharedPrefsInstance ?: try {
+                    val appContext = context.applicationContext
+                    val masterKey = MasterKey.Builder(appContext)
+                        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                        .build()
+                    val encryptedPrefs = EncryptedSharedPreferences.create(
+                        appContext,
+                        "gemini_mail_prefs_secure",
+                        masterKey,
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                    sharedPrefsInstance = encryptedPrefs
+                    encryptedPrefs
+                } catch (e: Exception) {
+                    val plainPrefs = context.applicationContext.getSharedPreferences("gemini_mail_prefs_secure", Context.MODE_PRIVATE)
+                    sharedPrefsInstance = plainPrefs
+                    plainPrefs
+                }
+            }
+        }
     }
 
     var customTags: Set<String>

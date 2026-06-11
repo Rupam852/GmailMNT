@@ -10,10 +10,14 @@ import java.util.concurrent.Executor
 object BiometricHelper {
 
     fun isBiometricAvailable(context: Context): Boolean {
-        val biometricManager = BiometricManager.from(context)
-        return when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)) {
-            BiometricManager.BIOMETRIC_SUCCESS -> true
-            else -> false
+        return try {
+            val biometricManager = BiometricManager.from(context)
+            when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)) {
+                BiometricManager.BIOMETRIC_SUCCESS -> true
+                else -> false
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 

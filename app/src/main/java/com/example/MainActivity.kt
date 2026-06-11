@@ -64,11 +64,15 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         ).setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            "EmailBackgroundSyncWork",
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
+        try {
+            WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                "EmailBackgroundSyncWork",
+                ExistingPeriodicWorkPolicy.KEEP,
+                syncRequest
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
