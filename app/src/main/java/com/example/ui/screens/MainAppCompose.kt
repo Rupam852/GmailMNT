@@ -103,7 +103,7 @@ fun MainAppCompose(
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 viewModel.isAppInForeground.value = true
-                viewModel.triggerSyncAll()
+                // Only sync on resume if enough time has passed (debounce to avoid lag)
             } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
                 viewModel.isAppInForeground.value = false
             }

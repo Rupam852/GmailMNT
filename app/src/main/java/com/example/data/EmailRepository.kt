@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 class EmailRepository(private val context: Context) {
     private val db = EmailDatabase.getDatabase(context)
     private val dao = db.emailDao()
+    private val preferences = PreferenceManager(context)  // Reuse single instance
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
@@ -142,7 +143,7 @@ class EmailRepository(private val context: Context) {
     suspend fun syncEmailsForAccount(accountEmail: String) = withContext(Dispatchers.IO) {
         val account = dao.getAccountByEmail(accountEmail)
         
-        val pref = PreferenceManager(context)
+        val pref = preferences
         if (account != null && !accountEmail.lowercase().contains("simulated")) {
             val savedHistoryId = pref.getLastHistoryId(accountEmail)
             var activeToken = account.accessToken
@@ -630,7 +631,7 @@ class EmailRepository(private val context: Context) {
         }
 
         // Real account: Refresh token if expiring
-        val pref = PreferenceManager(context)
+        val pref = preferences
         val backendUrl = pref.renderBackendUrl
         if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
             refreshAccessToken(fromEmail, backendUrl)
@@ -713,7 +714,7 @@ class EmailRepository(private val context: Context) {
             return@withContext true
         }
 
-        val pref = PreferenceManager(context)
+        val pref = preferences
         val backendUrl = pref.renderBackendUrl
         if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
             refreshAccessToken(accountEmail, backendUrl)
@@ -904,7 +905,7 @@ class EmailRepository(private val context: Context) {
                 }
 
                 if (newHistoryId.isNotEmpty()) {
-                    PreferenceManager(context).saveLastHistoryId(accountEmail, newHistoryId)
+                    preferences.saveLastHistoryId(accountEmail, newHistoryId)
                 }
                 HistorySyncResult.Success
             }

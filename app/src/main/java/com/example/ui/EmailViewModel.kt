@@ -37,24 +37,24 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val activeEditingDraftId = MutableStateFlow<String?>(null)
     val isAppInForeground = MutableStateFlow(true)
 
+    // Track which notification IDs have already been cancelled to avoid repeated calls
+    private val cancelledNotificationIds = mutableSetOf<String>()
+
     init {
-        // Automatically trigger sync on start and run periodic refresh every 15 seconds when active
+        // Initial sync on start only; periodic sync is handled by WorkManager (every 15 min)
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1000)
+            kotlinx.coroutines.delay(1500)
             triggerSyncAll()
-            while (true) {
-                kotlinx.coroutines.delay(15000)
-                if (isAppInForeground.value) {
-                    triggerSyncAll()
-                }
-            }
         }
 
-        // Cancel notifications for any read emails reactively in background
+        // Cancel notifications only for newly-read emails (dedup to avoid repeated system calls)
         viewModelScope.launch(Dispatchers.Default) {
             filteredMessages.collect { messages ->
                 messages.filter { it.isRead }.forEach { msg ->
-                    com.example.util.NotificationHelper.cancelNotification(getApplication(), msg.id)
+                    if (!cancelledNotificationIds.contains(msg.id)) {
+                        cancelledNotificationIds.add(msg.id)
+                        com.example.util.NotificationHelper.cancelNotification(getApplication(), msg.id)
+                    }
                 }
             }
         }
@@ -562,7 +562,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     // Manual or scheduled trigger syncing
     fun triggerSyncAll(isManual: Boolean = false) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             syncMutex.withLock {
                 if (isManualSyncActive || isBackgroundSyncActive) {
                     // Already syncing, skip concurrent execution to prevent DB locks
@@ -575,10 +575,12 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     isBackgroundSyncActive = true
                     // Background/periodic sync: only show isLoading if we don't have messages yet
-                    val currentMessages = repository.allMessages.first()
-                    if (currentMessages.isEmpty()) {
-                        isLoading.value = true
-                    }
+                    try {
+                        val currentMessages = repository.allMessages.first()
+                        if (currentMessages.isEmpty()) {
+                            isLoading.value = true
+                        }
+                    } catch (_: Exception) { }
                 }
 
                 try {
@@ -598,15 +600,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         isBackgroundSyncActive = false
                     }
-                    
-                    // Only clear refreshing if no manual syncs are active
+
                     if (!isManualSyncActive) {
                         isRefreshing.value = false
                     }
-                    // Only clear loading if background sync is done or database is not empty
-                    if (!isBackgroundSyncActive || repository.allMessages.first().isNotEmpty()) {
-                        isLoading.value = false
-                    }
+                    isLoading.value = false
                 }
             }
         }
