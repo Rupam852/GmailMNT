@@ -1,12 +1,15 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.util.NotificationHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -38,6 +41,44 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val activeEditingDraftId = MutableStateFlow<String?>(null)
     val isAppInForeground = MutableStateFlow(true)
     val selectedTab = MutableStateFlow(0) // 0: Inbox, 1: Compose, 2: Settings
+
+    // Undo Send States
+    private var undoSendJob: Job? = null
+    val isUndoSendActive = MutableStateFlow(false)
+    val undoCountdownSeconds = MutableStateFlow(0)
+    private var pendingSendData: SendData? = null
+
+    private data class SendData(
+        val fromEmail: String,
+        val toEmail: String,
+        val subject: String,
+        val body: String,
+        val category: String,
+        val threadId: String?,
+        val sentMessageId: String,
+        val attachmentUris: List<Uri>
+    )
+
+    // Attachment States
+    val selectedAttachments = MutableStateFlow<List<Uri>>(emptyList())
+
+    fun addAttachment(uri: Uri) {
+        val current = selectedAttachments.value.toMutableList()
+        if (!current.contains(uri)) {
+            current.add(uri)
+            selectedAttachments.value = current
+        }
+    }
+
+    fun removeAttachment(uri: Uri) {
+        val current = selectedAttachments.value.toMutableList()
+        current.remove(uri)
+        selectedAttachments.value = current
+    }
+
+    fun clearAttachments() {
+        selectedAttachments.value = emptyList()
+    }
 
     // Track which notification IDs have already been cancelled to avoid repeated calls
     private val cancelledNotificationIds = mutableSetOf<String>()
@@ -209,6 +250,38 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (id == null) flowOf(null)
             else repository.allMessages.map { list -> list.find { it.id == id } }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // Attachments for the selected mail
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val attachmentsForSelectedMail: StateFlow<List<com.example.data.Attachment>> = _selectedMailId
+        .flatMapLatest { id ->
+            if (id == null) flowOf(emptyList())
+            else {
+                val database = com.example.data.EmailDatabase.getDatabase(getApplication())
+                database.emailDao().getAttachmentsForMessageFlow(id)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun downloadAttachment(messageId: String, attachmentId: String, accountEmail: String, fileName: String) {
+        viewModelScope.launch {
+            val uri = repository.downloadAttachment(messageId, attachmentId, accountEmail, fileName)
+            withContext(Dispatchers.Main) {
+                if (uri != null) {
+                    android.widget.Toast.makeText(
+                        getApplication(),
+                        "Attachment downloaded: $fileName",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    android.widget.Toast.makeText(
+                        getApplication(),
+                        "Failed to download attachment",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
 
     // State indicators
     val isLoading = MutableStateFlow(false)
@@ -464,37 +537,123 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         subject: String,
         body: String,
         category: String = "Primary",
-        threadId: String? = null
+        threadId: String? = null,
+        attachmentUris: List<Uri> = emptyList()
     ) {
+        val sentMessageId = "composed_${UUID.randomUUID()}"
+
+        // Insert the email into SENT folder immediately so user sees it
+        viewModelScope.launch {
+            val sentMsg = EmailMessage(
+                id = sentMessageId,
+                accountEmail = fromEmail,
+                senderName = "Me",
+                sender = fromEmail,
+                recipient = toEmail,
+                subject = subject,
+                body = body,
+                timestamp = System.currentTimeMillis(),
+                isRead = true,
+                isStarred = false,
+                label = "SENT",
+                category = category,
+                hasAttachments = attachmentUris.isNotEmpty()
+            )
+            repository.insertMessage(sentMsg)
+
+            // Delete draft if editing one
+            val draftId = activeEditingDraftId.value
+            if (draftId != null) {
+                repository.deleteMessage(draftId)
+                activeEditingDraftId.value = null
+            }
+        }
+
+        // Store pending send data and start undo countdown
+        pendingSendData = SendData(
+            fromEmail = fromEmail,
+            toEmail = toEmail,
+            subject = subject,
+            body = body,
+            category = category,
+            threadId = threadId,
+            sentMessageId = sentMessageId,
+            attachmentUris = attachmentUris
+        )
+
+        isUndoSendActive.value = true
+        undoCountdownSeconds.value = 5
+
+        undoSendJob?.cancel()
+        undoSendJob = viewModelScope.launch {
+            for (i in 5 downTo 1) {
+                undoCountdownSeconds.value = i
+                delay(1000)
+            }
+            // Countdown expired, actually send the email
+            executePendingSend()
+        }
+    }
+
+    fun cancelPendingSend() {
+        undoSendJob?.cancel()
+        undoSendJob = null
+        isUndoSendActive.value = false
+        undoCountdownSeconds.value = 0
+
+        val data = pendingSendData
+        pendingSendData = null
+
+        if (data != null) {
+            // Remove the SENT message from DB
+            viewModelScope.launch {
+                repository.deleteMessage(data.sentMessageId)
+                // Re-insert as DRAFT
+                val draftMsg = EmailMessage(
+                    id = "draft_${UUID.randomUUID()}",
+                    accountEmail = data.fromEmail,
+                    senderName = "Me",
+                    sender = data.fromEmail,
+                    recipient = data.toEmail,
+                    subject = data.subject,
+                    body = data.body,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = true,
+                    isStarred = false,
+                    label = "DRAFT",
+                    category = data.category,
+                    hasAttachments = data.attachmentUris.isNotEmpty()
+                )
+                repository.insertMessage(draftMsg)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        getApplication(),
+                        "Send cancelled. Email moved to drafts.",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun executePendingSend() {
+        val data = pendingSendData ?: return
+        isUndoSendActive.value = false
+        undoCountdownSeconds.value = 0
+        pendingSendData = null
+
         viewModelScope.launch {
             val hasNetwork = isNetworkAvailable()
             var success = false
             if (hasNetwork) {
-                success = repository.sendEmail(fromEmail, toEmail, subject, body, threadId)
-            }
-            
-            if (success) {
-                val draftId = activeEditingDraftId.value
-                if (draftId != null) {
-                    repository.deleteMessage(draftId) // remove draft from db
-                    activeEditingDraftId.value = null
-                }
-                val sentMsg = EmailMessage(
-                    id = "composed_${UUID.randomUUID()}",
-                    accountEmail = fromEmail,
-                    senderName = "Me",
-                    sender = fromEmail,
-                    recipient = toEmail,
-                    subject = subject,
-                    body = body,
-                    timestamp = System.currentTimeMillis(),
-                    isRead = true,
-                    isStarred = false,
-                    label = "SENT",
-                    category = category
+                success = repository.sendEmail(
+                    data.fromEmail, data.toEmail, data.subject, data.body,
+                    data.threadId, data.attachmentUris
                 )
-                repository.insertMessage(sentMsg)
-                triggerSyncAll() // Auto-fetch new emails immediately after sending!
+            }
+
+            if (success) {
+                triggerSyncAll()
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         getApplication(),
@@ -503,30 +662,22 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     ).show()
                 }
             } else {
-                // Save to local outbox database
+                // Save to offline outbox
                 try {
                     val database = EmailDatabase.getDatabase(getApplication())
                     val dao = database.emailDao()
+                    val attachmentUrisStr = data.attachmentUris.joinToString(",") { it.toString() }
                     dao.insertOutboxMessage(
                         OutboxMessage(
-                            fromEmail = fromEmail,
-                            toEmail = toEmail,
-                            subject = subject,
-                            body = body,
-                            threadId = threadId
+                            fromEmail = data.fromEmail,
+                            toEmail = data.toEmail,
+                            subject = data.subject,
+                            body = data.body,
+                            threadId = data.threadId,
+                            attachmentUris = attachmentUrisStr
                         )
                     )
-
-                    // Schedule Outbox Worker using WorkManager
                     scheduleOfflineEmailSync()
-
-                    // Delete draft from DB if it was a draft so it doesn't stay in draft list
-                    val draftId = activeEditingDraftId.value
-                    if (draftId != null) {
-                        repository.deleteMessage(draftId)
-                        activeEditingDraftId.value = null
-                    }
-
                     withContext(Dispatchers.Main) {
                         android.widget.Toast.makeText(
                             getApplication(),

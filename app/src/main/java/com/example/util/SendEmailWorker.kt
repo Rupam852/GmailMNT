@@ -1,6 +1,7 @@
 package com.example.util
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -27,12 +28,23 @@ class SendEmailWorker(
             var allSuccessful = true
             for (email in pending) {
                 Log.d("SendEmailWorker", "Attempting to send email from ${email.fromEmail} to ${email.toEmail}")
+                
+                // Parse attachment URIs if any
+                val attachmentUris = if (email.attachmentUris.isNotBlank()) {
+                    email.attachmentUris.split(",")
+                        .filter { it.isNotBlank() }
+                        .map { Uri.parse(it) }
+                } else {
+                    emptyList()
+                }
+
                 val success = repository.sendEmail(
                     fromEmail = email.fromEmail,
                     toEmail = email.toEmail,
                     subject = email.subject,
                     body = email.body,
-                    threadId = email.threadId
+                    threadId = email.threadId,
+                    attachmentUris = attachmentUris
                 )
                 if (success) {
                     dao.deleteOutboxMessageById(email.id)

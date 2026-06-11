@@ -82,4 +82,23 @@ interface EmailDao {
 
     @Query("DELETE FROM outbox_messages WHERE id = :id")
     suspend fun deleteOutboxMessageById(id: Int)
+
+    // --- Attachments ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttachment(attachment: Attachment)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttachments(attachments: List<Attachment>)
+
+    @Query("SELECT * FROM attachments WHERE messageId = :messageId")
+    suspend fun getAttachmentsForMessage(messageId: String): List<Attachment>
+
+    @Query("SELECT * FROM attachments WHERE messageId = :messageId")
+    fun getAttachmentsForMessageFlow(messageId: String): Flow<List<Attachment>>
+
+    @Query("DELETE FROM attachments WHERE messageId = :messageId")
+    suspend fun deleteAttachmentsForMessage(messageId: String)
+
+    @Query("SELECT COUNT(*) FROM attachments WHERE messageId = :messageId")
+    suspend fun getAttachmentCountForMessage(messageId: String): Int
 }

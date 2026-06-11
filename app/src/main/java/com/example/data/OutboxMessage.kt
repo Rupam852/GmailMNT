@@ -12,5 +12,6 @@ data class OutboxMessage(
     val subject: String,
     val body: String,
     val threadId: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val attachmentUris: String = ""
 ) : Serializable

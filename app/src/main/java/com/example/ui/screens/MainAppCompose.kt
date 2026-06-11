@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -914,24 +916,51 @@ fun DashboardScreen(
                     )
                 }
             },
+            floatingActionButton = {
+                if (selectedTab == 0) {
+                    ExtendedFloatingActionButton(
+                        onClick = { viewModel.selectedTab.value = 1 },
+                        containerColor = GrowwTeal,
+                        contentColor = Color.White,
+                        icon = { Icon(Icons.Default.Edit, "Compose") },
+                        text = { Text("Compose", fontWeight = FontWeight.Bold) }
+                    )
+                }
+            },
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                when (selectedTab) {
-                    0 -> InboxTabScreen(
-                        viewModel = viewModel,
-                        onMailClick = { msgId ->
-                            viewModel.selectMailId(msgId)
-                            showDetailDialog = true
-                        },
-                        onDeleteMail = onDeleteMail,
-                        onArchiveMail = onArchiveMail,
-                        onUnarchiveMail = onUnarchiveMail
-                    )
-                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                        viewModel.selectedTab.value = 0
-                    })
-                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                // Animated tab transitions
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        fadeIn(tween(200)) + slideInHorizontally(
+                            initialOffsetX = { if (targetState > initialState) 80 else -80 },
+                            animationSpec = tween(200)
+                        ) togetherWith
+                        fadeOut(tween(200)) + slideOutHorizontally(
+                            targetOffsetX = { if (targetState > initialState) -80 else 80 },
+                            animationSpec = tween(200)
+                        )
+                    },
+                    label = "tab_transition"
+                ) { tab ->
+                    when (tab) {
+                        0 -> InboxTabScreen(
+                            viewModel = viewModel,
+                            onMailClick = { msgId ->
+                                viewModel.selectMailId(msgId)
+                                showDetailDialog = true
+                            },
+                            onDeleteMail = onDeleteMail,
+                            onArchiveMail = onArchiveMail,
+                            onUnarchiveMail = onUnarchiveMail
+                        )
+                        1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                            viewModel.selectedTab.value = 0
+                        })
+                        2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
+                    }
                 }
             }
         }
@@ -1238,6 +1267,54 @@ fun InboxTabScreen(
 
 
 
+        // Category Filter Chips Row (horizontal scroll)
+        if (selectedFolder.uppercase() == "INBOX") {
+            val categoriesList = listOf("All", "Primary", "Updates", "Social", "Promotions", "Forums")
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            ) {
+                items(categoriesList) { cat ->
+                    val isSelected = selectedCategory == cat
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            viewModel.selectedCategory.value = cat
+                            viewModel.selectedTag.value = "All"
+                        },
+                        label = {
+                            Text(
+                                cat,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        leadingIcon = if (isSelected) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        } else null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = GrowwTeal.copy(alpha = 0.18f),
+                            selectedLabelColor = GrowwTeal,
+                            selectedLeadingIconColor = GrowwTeal
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            selectedBorderColor = GrowwTeal.copy(alpha = 0.4f),
+                            enabled = true,
+                            selected = isSelected
+                        ),
+                        modifier = Modifier.height(32.dp)
+                    )
+                }
+            }
+        }
+
         // Trash Quick Actions Banner
         AnimatedVisibility(visible = selectedFolder.uppercase() == "TRASH" && filteredMessages.isNotEmpty()) {
             Column {
@@ -1318,30 +1395,53 @@ fun InboxTabScreen(
                     }
                 }
             } else if (filteredMessages.isEmpty()) {
+                // Animated empty state with contextual icon
+                val emptyFade by animateFloatAsState(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                    label = "empty_fade"
+                )
+                val (emptyIcon, emptyTitle, emptySubtitle) = when (selectedFolder.uppercase()) {
+                    "TRASH" -> Triple(Icons.Default.Delete, "Trash is empty", "Deleted emails will appear here.")
+                    "ARCHIVE" -> Triple(Icons.Default.Email, "No archived emails", "Archived emails will appear here.")
+                    "SENT" -> Triple(Icons.AutoMirrored.Filled.Send, "No sent emails", "Emails you send will appear here.")
+                    "DRAFT" -> Triple(Icons.Default.Edit, "No drafts", "Saved drafts will appear here.")
+                    "SPAM" -> Triple(Icons.Default.Warning, "No spam", "Spam emails will appear here.")
+                    else -> Triple(Icons.Default.Email, "All caught up!", "Pull down to refresh or tap compose to write a new email.")
+                }
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = emptyFade },
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = "Empty Box icon",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                            modifier = Modifier.size(72.dp)
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .background(GrowwTeal.copy(alpha = 0.08f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = emptyIcon,
+                                contentDescription = "Empty state icon",
+                                tint = GrowwTeal.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
                         Text(
-                            text = "Your inbox is empty",
+                            text = emptyTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tap the bell icon above to simulate incoming mail or pull down to refresh.",
+                            text = emptySubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 4.dp)
+                            modifier = Modifier.padding(horizontal = 40.dp)
                         )
                     }
                 }
@@ -1681,6 +1781,24 @@ fun EmailMessageRowItem(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
+            // Unread dot indicator
+            if (!mail.isRead) {
+                Box(
+                    modifier = Modifier
+                        .width(8.dp)
+                        .padding(top = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(GrowwTeal)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+
             // Profile Circle with Image
             val emailClean = remember(mail.sender) {
                 mail.sender.substringAfter("<", "").substringBefore(">", "").trim().ifEmpty { mail.sender.trim() }.lowercase()
@@ -1758,21 +1876,36 @@ fun EmailMessageRowItem(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Middle Row: Subject and Star
+                // Middle Row: Subject, Attachment badge and Star
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = mail.subject,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = unreadWeight,
-                        color = unreadColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = mail.subject,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = unreadWeight,
+                            color = unreadColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        // Attachment indicator
+                        if (mail.hasAttachments) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.AttachFile,
+                                contentDescription = "Has attachments",
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onStarredToggle,
                         modifier = Modifier.size(24.dp)
@@ -1833,12 +1966,28 @@ fun ComposeTabScreen(
 ) {
     val context = LocalContext.current
     val activeDraftId by viewModel.activeEditingDraftId.collectAsState()
+    val isUndoSendActive by viewModel.isUndoSendActive.collectAsState()
+    val undoCountdownSeconds by viewModel.undoCountdownSeconds.collectAsState()
+    val selectedAttachments by viewModel.selectedAttachments.collectAsState()
 
     var recipient by remember(activeDraftId) { mutableStateOf(viewModel.getDraftRecipient()) }
     var subject by remember(activeDraftId) { mutableStateOf(viewModel.getDraftSubject()) }
     var body by remember(activeDraftId) { mutableStateOf(viewModel.getDraftBody()) }
     var category by remember(activeDraftId) { mutableStateOf(viewModel.getDraftCategory()) }
     var showGeminiWizard by remember { mutableStateOf(false) }
+
+    // Undo Send State - store last fields for restoration
+    var lastRecipient by remember { mutableStateOf("") }
+    var lastSubject by remember { mutableStateOf("") }
+    var lastBody by remember { mutableStateOf("") }
+    var lastCategory by remember { mutableStateOf("Primary") }
+
+    // File picker for attachments
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        uris.forEach { viewModel.addAttachment(it) }
+    }
 
     val accounts by viewModel.accounts.collectAsState()
     var selectedFromEmail by remember { mutableStateOf("") }
@@ -1993,10 +2142,93 @@ fun ComposeTabScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(bottom = 12.dp)
+                .padding(bottom = 8.dp)
                 .testTag("compose_body_input"),
             shape = RoundedCornerShape(10.dp)
         )
+
+        // Attachment chips row
+        if (selectedAttachments.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                items(selectedAttachments) { uri ->
+                    val fileName = remember(uri) {
+                        var name = "File"
+                        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                                if (idx >= 0) name = cursor.getString(idx)
+                            }
+                        }
+                        name
+                    }
+                    InputChip(
+                        selected = true,
+                        onClick = { },
+                        label = { Text(fileName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.AttachFile, "Attachment", modifier = Modifier.size(14.dp))
+                        },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close, "Remove",
+                                modifier = Modifier.size(14.dp).clickable { viewModel.removeAttachment(uri) }
+                            )
+                        },
+                        modifier = Modifier.height(32.dp),
+                        colors = InputChipDefaults.inputChipColors(
+                            selectedContainerColor = GrowwTeal.copy(alpha = 0.12f),
+                            selectedLabelColor = GrowwTeal,
+                            selectedLeadingIconColor = GrowwTeal
+                        )
+                    )
+                }
+            }
+        }
+
+        // Undo Send countdown banner
+        AnimatedVisibility(visible = isUndoSendActive) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = GrowwTeal.copy(alpha = 0.15f)
+                ),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, "Sending", tint = GrowwTeal, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Sending in ${undoCountdownSeconds}s...",
+                            fontWeight = FontWeight.Bold,
+                            color = GrowwTeal,
+                            fontSize = 13.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            viewModel.cancelPendingSend()
+                            recipient = lastRecipient
+                            subject = lastSubject
+                            body = lastBody
+                            category = lastCategory
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = AlertRed)
+                    ) {
+                        Text("Undo", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
 
         // Controls action buttons row
         Row(
@@ -2018,6 +2250,18 @@ fun ComposeTabScreen(
                 Icon(Icons.Default.Face, "Gemini Assist", modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("AI Draft", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            // Attachment picker button
+            IconButton(
+                onClick = { filePickerLauncher.launch("*/*") },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.AttachFile, "Attach file",
+                    tint = GrowwTeal,
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
             // Save Draft Button
@@ -2053,16 +2297,25 @@ fun ComposeTabScreen(
                     if (recipient.isEmpty() || subject.isEmpty() || body.isEmpty()) {
                         Toast.makeText(context, "Checks Failed: Compose complete parameters first.", Toast.LENGTH_SHORT).show()
                     } else {
-                        viewModel.composeEmail(selectedFromEmail, recipient, subject, body, category)
+                        // Store fields for potential undo restoration
+                        lastRecipient = recipient
+                        lastSubject = subject
+                        lastBody = body
+                        lastCategory = category
+
+                        val attachmentUris = selectedAttachments.toList()
+                        viewModel.composeEmail(selectedFromEmail, recipient, subject, body, category, attachmentUris = attachmentUris)
                         viewModel.clearDraft()
+                        viewModel.clearAttachments()
                         recipient = ""
                         subject = ""
                         body = ""
                         category = "Primary"
-                        Toast.makeText(context, "Email drafted/sent successfully!", Toast.LENGTH_SHORT).show()
+                        // Don't show toast here - the undo banner will appear
                         onComposeSuccess()
                     }
                 },
+                enabled = !isUndoSendActive,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = GrowwTeal,
                     contentColor = Color.White
@@ -2630,6 +2883,88 @@ fun EmailDetailDialog(
                                 lineHeight = 22.sp, 
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
                             )
+                        }
+                    }
+                }
+
+                // Attachments section
+                val attachments by viewModel.attachmentsForSelectedMail.collectAsState()
+                if (attachments.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Attachments (${attachments.size})",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        attachments.forEach { attachment ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AttachFile,
+                                        contentDescription = "Attachment",
+                                        tint = GrowwTeal,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = attachment.fileName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        val sizeStr = remember(attachment.sizeBytes) {
+                                            when {
+                                                attachment.sizeBytes < 1024 -> "${attachment.sizeBytes} B"
+                                                attachment.sizeBytes < 1024 * 1024 -> "${attachment.sizeBytes / 1024} KB"
+                                                else -> String.format("%.1f MB", attachment.sizeBytes / (1024.0 * 1024.0))
+                                            }
+                                        }
+                                        Text(
+                                            text = sizeStr,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            if (attachment.gmailAttachmentId != null) {
+                                                viewModel.downloadAttachment(
+                                                    messageId = mail.id,
+                                                    attachmentId = attachment.gmailAttachmentId,
+                                                    accountEmail = mail.accountEmail,
+                                                    fileName = attachment.fileName
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.ArrowDropDown,
+                                            "Download",
+                                            tint = GrowwTeal,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

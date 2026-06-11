@@ -1,6 +1,8 @@
 package com.example.data
 
 import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import com.example.api.Content
 import com.example.api.GeminiRetrofitClient
@@ -17,6 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class EmailRepository(private val context: Context) {
@@ -465,6 +468,18 @@ class EmailRepository(private val context: Context) {
                         }
                     }
 
+                    // Extract attachments from MIME parts
+                    val attachments = extractAttachmentsFromPayload(msgId, payload)
+                    val hasAttachments = attachments.isNotEmpty()
+
+                    // Insert attachments into DB
+                    if (attachments.isNotEmpty()) {
+                        kotlinx.coroutines.runBlocking {
+                            dao.deleteAttachmentsForMessage(msgId)
+                            dao.insertAttachments(attachments)
+                        }
+                    }
+
                     return EmailMessage(
                         id = msgId,
                         accountEmail = accountEmail,
@@ -478,7 +493,8 @@ class EmailRepository(private val context: Context) {
                         isStarred = isStarred,
                         label = label,
                         category = category,
-                        htmlBody = htmlBody
+                        htmlBody = htmlBody,
+                        hasAttachments = hasAttachments
                     )
                 }
             }
@@ -486,6 +502,85 @@ class EmailRepository(private val context: Context) {
             Log.e("EmailRepository", "Error fetching details for msg $msgId", e)
         }
         return null
+    }
+
+    private fun extractAttachmentsFromPayload(messageId: String, payload: JSONObject): List<Attachment> {
+        val attachments = mutableListOf<Attachment>()
+        val parts = payload.optJSONArray("parts") ?: return attachments
+
+        fun processParts(partsArray: org.json.JSONArray) {
+            for (i in 0 until partsArray.length()) {
+                val part = partsArray.getJSONObject(i)
+                val mimeType = part.optString("mimeType", "")
+                val filename = part.optString("filename", "")
+                val body = part.optJSONObject("body")
+                val attachmentId = body?.optString("attachmentId", "") ?: ""
+                val size = body?.optLong("size", 0L) ?: 0L
+
+                // A part is an attachment if it has a non-empty filename or is not text/plain or text/html
+                if (filename.isNotEmpty() && attachmentId.isNotEmpty()) {
+                    attachments.add(
+                        Attachment(
+                            id = "${messageId}_${attachmentId}",
+                            messageId = messageId,
+                            fileName = filename,
+                            mimeType = mimeType,
+                            sizeBytes = size,
+                            gmailAttachmentId = attachmentId
+                        )
+                    )
+                }
+
+                // Recurse into nested parts
+                val nestedParts = part.optJSONArray("parts")
+                if (nestedParts != null) {
+                    processParts(nestedParts)
+                }
+            }
+        }
+
+        processParts(parts)
+        return attachments
+    }
+
+    /**
+     * Download an attachment from Gmail API and save to cache.
+     * Returns the local file URI or null on failure.
+     */
+    suspend fun downloadAttachment(
+        messageId: String,
+        attachmentId: String,
+        accountEmail: String,
+        fileName: String
+    ): Uri? = withContext(Dispatchers.IO) {
+        val account = dao.getAccountByEmail(accountEmail) ?: return@withContext null
+        val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/$messageId/attachments/$attachmentId"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer ${account.accessToken}")
+            .build()
+
+        try {
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string() ?: return@withContext null
+                    val json = JSONObject(bodyStr)
+                    val data = json.optString("data", "")
+                    if (data.isNotEmpty()) {
+                        val decodedBytes = android.util.Base64.decode(
+                            data, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                        )
+                        val cacheDir = context.cacheDir
+                        val file = java.io.File(cacheDir, fileName)
+                        file.writeBytes(decodedBytes)
+                        return@withContext Uri.fromFile(file)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error downloading attachment", e)
+        }
+        null
     }
 
     private fun extractMessageBody(payload: JSONObject): String {
@@ -621,7 +716,14 @@ class EmailRepository(private val context: Context) {
         "AI Assistant Generation Error: $errorMsg"
     }
 
-    suspend fun sendEmail(fromEmail: String, toEmail: String, subject: String, body: String, threadId: String? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun sendEmail(
+        fromEmail: String,
+        toEmail: String,
+        subject: String,
+        body: String,
+        threadId: String? = null,
+        attachmentUris: List<Uri> = emptyList()
+    ): Boolean = withContext(Dispatchers.IO) {
         val account = dao.getAccountByEmail(fromEmail)
         
         // If it's a mock/simulated account (or no account exists), we treat it as successful mock send.
@@ -639,12 +741,57 @@ class EmailRepository(private val context: Context) {
 
         val updatedAccount = dao.getAccountByEmail(fromEmail) ?: return@withContext false
 
-        // Build RFC 822 / MIME format message
-        val mimeMessage = "From: $fromEmail\r\n" +
-                "To: $toEmail\r\n" +
-                "Subject: $subject\r\n" +
-                "Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
-                body
+        // Build MIME message
+        val mimeMessage: String
+        if (attachmentUris.isEmpty()) {
+            // Simple text-only MIME message
+            mimeMessage = "From: $fromEmail\r\n" +
+                    "To: $toEmail\r\n" +
+                    "Subject: $subject\r\n" +
+                    "Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
+                    body
+        } else {
+            // Multipart MIME message with attachments
+            val boundary = "----=_Part_${UUID.randomUUID().toString().replace("-", "")}"
+            val sb = StringBuilder()
+            sb.append("From: $fromEmail\r\n")
+            sb.append("To: $toEmail\r\n")
+            sb.append("Subject: $subject\r\n")
+            sb.append("MIME-Version: 1.0\r\n")
+            sb.append("Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n\r\n")
+
+            // Text body part
+            sb.append("--$boundary\r\n")
+            sb.append("Content-Type: text/plain; charset=UTF-8\r\n")
+            sb.append("Content-Transfer-Encoding: 7bit\r\n\r\n")
+            sb.append(body)
+            sb.append("\r\n")
+
+            // Attachment parts
+            for (uri in attachmentUris) {
+                try {
+                    val (fileName, fileBytes, mimeType) = readAttachmentFromUri(uri)
+                    if (fileName != null && fileBytes != null) {
+                        val base64Data = android.util.Base64.encodeToString(
+                            fileBytes,
+                            android.util.Base64.DEFAULT or android.util.Base64.NO_WRAP
+                        )
+                        val encodedFileName = java.net.URLEncoder.encode(fileName, "UTF-8")
+                        sb.append("--$boundary\r\n")
+                        sb.append("Content-Type: ${mimeType ?: "application/octet-stream"}; name=\"$fileName\"\r\n")
+                        sb.append("Content-Transfer-Encoding: base64\r\n")
+                        sb.append("Content-Disposition: attachment; filename=\"$encodedFileName\"\r\n\r\n")
+                        sb.append(base64Data)
+                        sb.append("\r\n")
+                    }
+                } catch (e: Exception) {
+                    Log.e("EmailRepository", "Error reading attachment $uri", e)
+                }
+            }
+
+            sb.append("--$boundary--\r\n")
+            mimeMessage = sb.toString()
+        }
 
         val base64Raw = android.util.Base64.encodeToString(
             mimeMessage.toByteArray(Charsets.UTF_8),
@@ -697,6 +844,36 @@ class EmailRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("EmailRepository", "Exception in sendEmail", e)
             false
+        }
+    }
+
+    private fun readAttachmentFromUri(uri: Uri): Triple<String?, ByteArray?, String?> {
+        return try {
+            val resolver = context.contentResolver
+            var fileName: String? = null
+            var mimeType: String? = resolver.getType(uri)
+
+            // Try to get filename from ContentResolver
+            resolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) fileName = cursor.getString(nameIndex)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIndex >= 0) {
+                        // Just for logging
+                    }
+                }
+            }
+
+            if (fileName == null) {
+                fileName = "attachment_${System.currentTimeMillis()}"
+            }
+
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+            Triple(fileName, bytes, mimeType)
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error reading attachment from URI: $uri", e)
+            Triple(null, null, null)
         }
     }
 
