@@ -162,6 +162,13 @@ a {
   color: var(--text-primary);
 }
 
+/* Shine animation keyframes */
+@keyframes shine {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
 .nav-download-btn {
   display: flex;
   align-items: center;
@@ -173,6 +180,25 @@ a {
   font-weight: 600;
   color: white;
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-download-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  animation: shine 2.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .nav-download-btn:hover {
@@ -269,6 +295,25 @@ a {
   transition: all 0.3s ease;
   border: none;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  animation: shine 2.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .btn-primary:hover {
