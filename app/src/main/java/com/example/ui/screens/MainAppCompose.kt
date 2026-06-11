@@ -940,6 +940,11 @@ fun DashboardScreen(
         ManageTagsDialog(viewModel = viewModel, onDismiss = { showManageTagsDialogSide = false })
     }
 
+    LaunchedEffect(selectedTab) {
+        showDetailDialog = false
+        viewModel.selectMailId(null)
+    }
+
     // Modal Sheet Detail Dialogue
     val activeSelectedMail by viewModel.selectedMail.collectAsState()
     LaunchedEffect(showDetailDialog, activeSelectedMail?.id) {
@@ -2364,29 +2369,61 @@ fun AddAccountSelectionDialog(
         title = { Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold) },
         text = {
             Text(
-                "You can link your active Google account securely using OAuth. This will redirect you to the Google login screen.",
+                "You can link your active Google account securely using OAuth, or add a simulated sandbox profile for local offline testing.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
-                    activity.startActivity(intent)
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
-                shape = RoundedCornerShape(10.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Lock, "OAuth secure verification")
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Link Google Account", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
+                        activity.startActivity(intent)
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Lock, "OAuth secure verification", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Link Google Account", fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.handleOAuthSuccess(
+                            email = "simulated@gmail-mnt.local",
+                            accessToken = "mock_access_token",
+                            refreshToken = "", // Empty refresh token indicates simulated profile
+                            expiresAt = System.currentTimeMillis() + 3600 * 1000,
+                            displayName = "Sandbox Tester",
+                            profilePictureUrl = ""
+                        )
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Face, "Sandbox profile creation", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Add Sandbox Profile", fontWeight = FontWeight.Bold)
+                }
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Cancel")
+                }
             }
         }
     )
@@ -2776,6 +2813,10 @@ fun GeminiWizardDialog(
     var promptRequirements by remember { mutableStateOf("") }
     val isGeneratingDraft by viewModel.isGeneratingDraft.collectAsState()
     val geminiResponse by viewModel.geminiResponse.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.geminiResponse.value = ""
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

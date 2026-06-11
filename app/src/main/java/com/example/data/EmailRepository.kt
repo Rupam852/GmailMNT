@@ -761,6 +761,55 @@ class EmailRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Permanently delete a message from Gmail.
+     */
+    suspend fun permanentlyDeleteGmailMessage(accountEmail: String, msgId: String): Boolean = withContext(Dispatchers.IO) {
+        val account = dao.getAccountByEmail(accountEmail) ?: return@withContext false
+        if (account.email.lowercase().contains("simulated")) {
+            return@withContext true
+        }
+
+        val pref = preferences
+        val backendUrl = pref.renderBackendUrl
+        if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+            refreshAccessToken(accountEmail, backendUrl)
+        }
+
+        val updatedAccount = dao.getAccountByEmail(accountEmail) ?: return@withContext false
+        val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/$msgId"
+        var request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer ${updatedAccount.accessToken}")
+            .delete()
+            .build()
+
+        try {
+            var response = okHttpClient.newCall(request).execute()
+            if (response.code == 401) {
+                response.close()
+                val refreshed = refreshAccessToken(accountEmail, backendUrl)
+                if (refreshed) {
+                    val freshAccount = dao.getAccountByEmail(accountEmail)
+                    if (freshAccount != null) {
+                        request = Request.Builder()
+                            .url(url)
+                            .header("Authorization", "Bearer ${freshAccount.accessToken}")
+                            .delete()
+                            .build()
+                        response = okHttpClient.newCall(request).execute()
+                    }
+                }
+            }
+            response.use { resp ->
+                resp.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error permanently deleting $msgId", e)
+            false
+        }
+    }
+
     private suspend fun fetchCurrentHistoryId(accessToken: String): String? {
         val url = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
         val request = Request.Builder()

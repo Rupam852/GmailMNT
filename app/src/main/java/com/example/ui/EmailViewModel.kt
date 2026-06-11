@@ -118,10 +118,10 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (filter.category != "All") {
                 list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
             } else {
-                // Show only Primary, Updates, Social, Forums in All Inbox feed.
+                // Show only Primary, Updates, Social, Forums, Promotions in All Inbox feed.
                 list = list.filter {
                     val cat = it.category.uppercase()
-                    cat == "PRIMARY" || cat == "UPDATES" || cat == "SOCIAL" || cat == "FORUMS"
+                    cat == "PRIMARY" || cat == "UPDATES" || cat == "SOCIAL" || cat == "FORUMS" || cat == "PROMOTIONS"
                 }
             }
         }
@@ -202,6 +202,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     // Detail Mail State
     private val _selectedMailId = MutableStateFlow<String?>(null)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val selectedMail: StateFlow<EmailMessage?> = _selectedMailId
         .flatMapLatest { id ->
             if (id == null) flowOf(null)
@@ -312,6 +313,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (email != null) {
                 if (email.label.uppercase() == "TRASH") {
                     repository.deleteMessage(id) // Permanently delete
+                    if (!email.accountEmail.lowercase().contains("simulated")) {
+                        repository.permanentlyDeleteGmailMessage(email.accountEmail, email.id)
+                    }
                 } else {
                     repository.updateMessageLabel(id, "TRASH") // Move to Trash
                     if (!email.accountEmail.lowercase().contains("simulated")) {
@@ -359,15 +363,23 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     fun emptyTrash() {
         viewModelScope.launch {
+            val trashMessages = repository.allMessages.first().filter { it.label.uppercase() == "TRASH" }
             repository.emptyTrash()
+            trashMessages.forEach { msg ->
+                if (!msg.accountEmail.lowercase().contains("simulated")) {
+                    launch {
+                        repository.permanentlyDeleteGmailMessage(msg.accountEmail, msg.id)
+                    }
+                }
+            }
         }
     }
 
     fun restoreAllTrash() {
         viewModelScope.launch {
-            val trashMessages = filteredMessages.value.filter { it.label.uppercase() == "TRASH" }
-            repository.restoreAllTrash()
+            val trashMessages = repository.allMessages.first().filter { it.label.uppercase() == "TRASH" }
             trashMessages.forEach { msg ->
+                repository.updateMessageLabel(msg.id, "INBOX")
                 if (!msg.accountEmail.lowercase().contains("simulated")) {
                     launch {
                         repository.modifyGmailLabels(msg.accountEmail, msg.id, listOf("INBOX"), listOf("TRASH"))
