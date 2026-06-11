@@ -1421,7 +1421,18 @@ fun InboxTabScreen(
             val mail = longPressedMail!!
             AlertDialog(
                 onDismissRequest = { longPressedMail = null },
-                title = { Text("Options", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Options", fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { longPressedMail = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close options dialog")
+                        }
+                    }
+                },
                 text = {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -1499,12 +1510,7 @@ fun InboxTabScreen(
                         }
                     }
                 },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { longPressedMail = null }) {
-                        Text("Close")
-                    }
-                }
+                confirmButton = {}
             )
         }
     }
@@ -2366,7 +2372,18 @@ fun AddAccountSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold) },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold)
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close dialog")
+                }
+            }
+        },
         text = {
             Text(
                 "You can link your active Google account securely using OAuth, or add a simulated sandbox profile for local offline testing.",
@@ -2416,13 +2433,6 @@ fun AddAccountSelectionDialog(
                     Icon(Icons.Default.Face, "Sandbox profile creation", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Add Sandbox Profile", fontWeight = FontWeight.Bold)
-                }
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Cancel")
                 }
             }
         }
