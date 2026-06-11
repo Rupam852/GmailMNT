@@ -72,16 +72,22 @@ fun MainAppCompose(
 ) {
     var currentScreen by remember { mutableStateOf("splash") }
 
-    // Request notification permission dynamically at launch in Compose
+    // Register permission launcher unconditionally at composition root
+    val permissionLauncher = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { }
+    } else null
+
+    // Request notification permission dynamically in Compose ONLY after Splash Screen finishes
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         val permissionContext = LocalContext.current
         val permission = android.Manifest.permission.POST_NOTIFICATIONS
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { }
-        LaunchedEffect(Unit) {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(permissionContext, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                launcher.launch(permission)
+        LaunchedEffect(currentScreen) {
+            if (currentScreen != "splash") {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(permissionContext, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    permissionLauncher?.launch(permission)
+                }
             }
         }
     }

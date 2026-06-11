@@ -32,7 +32,7 @@ object NotificationHelper {
         createNotificationChannel(context)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(context.applicationInfo.icon)
+            .setSmallIcon(com.example.R.drawable.ic_notification)
             .setContentTitle("New Mail from $senderName")
             .setContentText(subject)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$subject\n$bodySnippet"))
