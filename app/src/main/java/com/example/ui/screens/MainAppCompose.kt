@@ -1602,46 +1602,45 @@ fun EmailMessageRowItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 // Top Row: Sender Name & Date
+                // Top Row: Sender Name & Date
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = mail.senderName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = unreadWeight,
-                            color = unreadColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        androidx.compose.material3.Surface(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        ) {
-                            Text(
-                                text = mail.accountEmail,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = mail.senderName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = unreadWeight,
+                        color = unreadColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = relativeDateStr,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = unreadWeight,
                         color = if (!mail.isRead) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Recipient Account Email Badge (Shifted below the Sender Name to prevent crowding)
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(vertical = 1.dp)
+                ) {
+                    Text(
+                        text = mail.accountEmail,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                     )
                 }
 
