@@ -32,7 +32,7 @@ object NotificationHelper {
         createNotificationChannel(context)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setSmallIcon(context.applicationInfo.icon)
             .setContentTitle("New Mail from $senderName")
             .setContentText(subject)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$subject\n$bodySnippet"))
@@ -43,8 +43,7 @@ object NotificationHelper {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             // Use stable hashcode of emailId as notification ID so we can cancel it when read!
             notificationManager.notify(emailId.hashCode(), builder.build())
-        } catch (e: SecurityException) {
-            // Under API 33+ if POST_NOTIFICATIONS runtime permission is missing
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }

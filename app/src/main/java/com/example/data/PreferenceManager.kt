@@ -2,9 +2,24 @@ package com.example.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 
 class PreferenceManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("gemini_mail_prefs", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "gemini_mail_prefs_secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        context.getSharedPreferences("gemini_mail_prefs_secure", Context.MODE_PRIVATE)
+    }
 
     companion object {
         private const val KEY_GEMINI_API_KEY = "gemini_api_key"

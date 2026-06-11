@@ -24,11 +24,15 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Request notification permission at runtime on API 33+
+        // Request notification permission at runtime on API 33+ with a delay to prevent clashing with startup transitions
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             val permission = android.Manifest.permission.POST_NOTIFICATIONS
             if (androidx.core.content.ContextCompat.checkSelfPermission(this, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(permission), 101)
+                window.decorView.postDelayed({
+                    if (!isFinishing && !isDestroyed) {
+                        androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(permission), 101)
+                    }
+                }, 3000)
             }
         }
 
