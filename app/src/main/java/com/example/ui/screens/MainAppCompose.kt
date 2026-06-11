@@ -29,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -1349,6 +1350,9 @@ fun InboxTabScreen(
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
                     items(filteredMessages, key = { it.id }) { mail ->
+                        val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                        var hasTriggeredHaptic by remember(mail.id) { mutableStateOf(false) }
+
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -1365,18 +1369,35 @@ fun InboxTabScreen(
                                     false
                                 }
                             },
-                            positionalThreshold = { totalDistance -> totalDistance * 0.7f }
+                            positionalThreshold = { totalDistance -> totalDistance * 0.40f }
                         )
+
+                        val progress = dismissState.progress
+                        val isThresholdCrossed = progress >= 0.40f
+
+                        LaunchedEffect(isThresholdCrossed) {
+                            if (isThresholdCrossed && !hasTriggeredHaptic) {
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                hasTriggeredHaptic = true
+                            } else if (!isThresholdCrossed) {
+                                hasTriggeredHaptic = false
+                            }
+                        }
+
                         SwipeToDismissBox(
                             state = dismissState,
                             enableDismissFromStartToEnd = true,
                             enableDismissFromEndToStart = true,
                             backgroundContent = {
-                                val color = when (dismissState.dismissDirection) {
+                                val progressVal = dismissState.progress
+                                val alpha = (progressVal * 2.5f).coerceIn(0f, 1f) // Fade in smoothly, fully green/red at 40% swipe
+                                val baseColor = when (dismissState.dismissDirection) {
                                     SwipeToDismissBoxValue.EndToStart -> AlertRed
                                     SwipeToDismissBoxValue.StartToEnd -> GrowwTeal
                                     else -> Color.Transparent
                                 }
+                                val color = baseColor.copy(alpha = alpha)
+
                                 val alignment = when (dismissState.dismissDirection) {
                                     SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
                                     SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
@@ -1389,6 +1410,10 @@ fun InboxTabScreen(
                                     }
                                     else -> Icons.Default.Email
                                 }
+
+                                // Scale icon from 0.8 to 1.2x based on swipe progress, locking at 1.2x on threshold crossed
+                                val scale = if (isThresholdCrossed) 1.2f else 0.8f + (progressVal * 1.0f).coerceAtMost(0.2f)
+
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -1399,7 +1424,8 @@ fun InboxTabScreen(
                                     Icon(
                                         imageVector = icon,
                                         contentDescription = "Swipe Action Icon",
-                                        tint = Color.White
+                                        tint = Color.White.copy(alpha = alpha.coerceIn(0.3f, 1f)),
+                                        modifier = Modifier.scale(scale)
                                     )
                                 }
                             }
