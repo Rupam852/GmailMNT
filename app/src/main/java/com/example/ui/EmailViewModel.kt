@@ -316,10 +316,16 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     if (!email.accountEmail.lowercase().contains("simulated")) {
                         repository.permanentlyDeleteGmailMessage(email.accountEmail, email.id)
                     }
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(getApplication(), "Email permanently deleted", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     repository.updateMessageLabel(id, "TRASH") // Move to Trash
                     if (!email.accountEmail.lowercase().contains("simulated")) {
                         repository.modifyGmailLabels(email.accountEmail, email.id, listOf("TRASH"), listOf("INBOX"))
+                    }
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(getApplication(), "Moved to Trash", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -333,6 +339,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (email != null && !email.accountEmail.lowercase().contains("simulated")) {
                 repository.modifyGmailLabels(email.accountEmail, email.id, listOf("INBOX"), listOf("TRASH"))
             }
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(getApplication(), "Email restored to Inbox", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -345,6 +354,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                 if (!email.accountEmail.lowercase().contains("simulated")) {
                     repository.modifyGmailLabels(email.accountEmail, email.id, emptyList(), listOf("INBOX"))
                 }
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(getApplication(), "Email archived", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -356,6 +368,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                 repository.updateMessageLabel(id, "INBOX")
                 if (!email.accountEmail.lowercase().contains("simulated")) {
                     repository.modifyGmailLabels(email.accountEmail, email.id, listOf("INBOX"), emptyList())
+                }
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(getApplication(), "Email restored to Inbox", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -372,6 +387,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(getApplication(), "Trash cleared", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -385,6 +403,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                         repository.modifyGmailLabels(msg.accountEmail, msg.id, listOf("INBOX"), listOf("TRASH"))
                     }
                 }
+            }
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(getApplication(), "All trash emails restored to Inbox", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -425,6 +446,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAccount(email: String) {
         viewModelScope.launch {
             repository.deleteAccount(email)
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(getApplication(), "Account removed", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -585,6 +609,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                 if (isManual) {
                     isManualSyncActive = true
                     isRefreshing.value = true
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(getApplication(), "Sync started...", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     isBackgroundSyncActive = true
                     // Background/periodic sync: only show isLoading if we don't have messages yet
@@ -596,6 +623,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     } catch (_: Exception) { }
                 }
 
+                var syncSuccess = true
                 try {
                     // If the access token is expiring soon, trigger background Render renew
                     val activeAccounts = repository.allAccounts.first()
@@ -607,6 +635,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 } catch (e: Exception) {
                     Log.e("ViewModel", "Sync Error", e)
+                    syncSuccess = false
                 } finally {
                     if (isManual) {
                         isManualSyncActive = false
@@ -618,6 +647,16 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                         isRefreshing.value = false
                     }
                     isLoading.value = false
+
+                    if (isManual) {
+                        withContext(Dispatchers.Main) {
+                            if (syncSuccess) {
+                                android.widget.Toast.makeText(getApplication(), "Sync completed. Inbox up to date.", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(getApplication(), "Sync failed. Check connection.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 }
             }
         }
