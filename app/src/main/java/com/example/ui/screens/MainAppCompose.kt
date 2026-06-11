@@ -1208,125 +1208,129 @@ fun InboxTabScreen(
 
 
 
-        // 5. Emails Scrollable List View with pulsing Skeleton Loaders
-        if (isLoading) {
-            val infiniteTransition = rememberInfiniteTransition(label = "shimmer_transition")
-            val alpha by infiniteTransition.animateFloat(
-                initialValue = 0.4f,
-                targetValue = 0.9f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 800, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "shimmer_alpha"
-            )
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                items(5) {
-                    EmailSkeletonRowItem(alpha = alpha)
+        // 5. Emails Scrollable List View with pulsing Skeleton Loaders and Pull-To-Refresh
+        androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+            isRefreshing = isLoading && filteredMessages.isNotEmpty(),
+            onRefresh = { viewModel.triggerSyncAll() },
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) {
+            if (isLoading && filteredMessages.isEmpty()) {
+                val infiniteTransition = rememberInfiniteTransition(label = "shimmer_transition")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 0.9f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "shimmer_alpha"
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(5) {
+                        EmailSkeletonRowItem(alpha = alpha)
+                    }
                 }
-            }
-        } else if (filteredMessages.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Email,
-                        contentDescription = "Empty Box icon",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                        modifier = Modifier.size(72.dp)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "Your inbox is empty",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = "Tap the bell icon above to simulate incoming mail or wait for auto-sync.",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                        modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 4.dp)
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                items(filteredMessages, key = { it.id }) { mail ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                onDeleteMail(mail)
-                                true
-                            } else if (value == SwipeToDismissBoxValue.StartToEnd) {
-                                if (selectedFolder.uppercase() == "ARCHIVE") {
-                                    onUnarchiveMail(mail)
-                                } else {
-                                    onArchiveMail(mail)
-                                }
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                        positionalThreshold = { totalDistance -> totalDistance * 0.7f }
-                    )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = true,
-                        enableDismissFromEndToStart = true,
-                        backgroundContent = {
-                            val color = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> AlertRed
-                                SwipeToDismissBoxValue.StartToEnd -> GrowwTeal
-                                else -> Color.Transparent
-                            }
-                            val alignment = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                                else -> Alignment.Center
-                            }
-                            val icon = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
-                                SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (selectedFolder.uppercase() == "ARCHIVE") Icons.Default.MailOutline else Icons.Default.Email
-                                }
-                                else -> Icons.Default.Email
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(color)
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = alignment
-                            ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = "Swipe Action Icon",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    ) {
-                        EmailMessageRowItem(
-                            mail = mail,
-                            accounts = accounts,
-                            onMailClick = { onMailClick(mail.id) },
-                            onMailLongClick = { longPressedMail = mail },
-                            onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) }
+            } else if (filteredMessages.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Empty Box icon",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                            modifier = Modifier.size(72.dp)
                         )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "Your inbox is empty",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            text = "Tap the bell icon above to simulate incoming mail or pull down to refresh.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                            modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 4.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    items(filteredMessages, key = { it.id }) { mail ->
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    onDeleteMail(mail)
+                                    true
+                                } else if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                    if (selectedFolder.uppercase() == "ARCHIVE") {
+                                        onUnarchiveMail(mail)
+                                    } else {
+                                        onArchiveMail(mail)
+                                    }
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            positionalThreshold = { totalDistance -> totalDistance * 0.7f }
+                        )
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = true,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                val color = when (dismissState.dismissDirection) {
+                                    SwipeToDismissBoxValue.EndToStart -> AlertRed
+                                    SwipeToDismissBoxValue.StartToEnd -> GrowwTeal
+                                    else -> Color.Transparent
+                                }
+                                val alignment = when (dismissState.dismissDirection) {
+                                    SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                                    else -> Alignment.Center
+                                }
+                                val icon = when (dismissState.dismissDirection) {
+                                    SwipeToDismissBoxValue.EndToStart -> Icons.Default.Delete
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        if (selectedFolder.uppercase() == "ARCHIVE") Icons.Default.MailOutline else Icons.Default.Email
+                                    }
+                                    else -> Icons.Default.Email
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(color)
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = alignment
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = "Swipe Action Icon",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        ) {
+                            EmailMessageRowItem(
+                                mail = mail,
+                                accounts = accounts,
+                                onMailClick = { onMailClick(mail.id) },
+                                onMailLongClick = { longPressedMail = mail },
+                                onStarredToggle = { viewModel.toggleStarred(mail.id, mail.isStarred) }
+                            )
+                        }
                     }
                 }
             }
@@ -2097,7 +2101,10 @@ fun SettingsTabScreen(
         ) {
             var showKey by remember { mutableStateOf(false) }
             var localApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
+            var hasError by remember { mutableStateOf(false) }
             val context = LocalContext.current
+            val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+            val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
@@ -2108,7 +2115,12 @@ fun SettingsTabScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = localApiKey,
-                    onValueChange = { localApiKey = it },
+                    onValueChange = { 
+                        localApiKey = it 
+                        if (it.trim().isNotEmpty()) {
+                            hasError = false
+                        }
+                    },
                     visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                     label = { Text("Personal Gemini Key") },
                     trailingIcon = {
@@ -2117,14 +2129,43 @@ fun SettingsTabScreen(
                         }
                     },
                     placeholder = { Text("AI Studio Gemini Key...") },
+                    isError = hasError,
+                    supportingText = if (hasError) {
+                        { Text("API Key cannot be empty!", color = MaterialTheme.colorScheme.error) }
+                    } else null,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onDone = {
+                            if (localApiKey.trim().isEmpty()) {
+                                hasError = true
+                                Toast.makeText(context, "Error: API Key cannot be empty!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                hasError = false
+                                viewModel.setGeminiApiKey(localApiKey.trim())
+                                Toast.makeText(context, "Gemini API Key saved successfully", Toast.LENGTH_SHORT).show()
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        }
+                    ),
                     modifier = Modifier.fillMaxWidth().testTag("gemini_key_input"),
                     shape = RoundedCornerShape(10.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Button(
                     onClick = {
-                        viewModel.setGeminiApiKey(localApiKey)
-                        Toast.makeText(context, "Gemini API Key saved successfully", Toast.LENGTH_SHORT).show()
+                        if (localApiKey.trim().isEmpty()) {
+                            hasError = true
+                            Toast.makeText(context, "Error: API Key cannot be empty!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            hasError = false
+                            viewModel.setGeminiApiKey(localApiKey.trim())
+                            Toast.makeText(context, "Gemini API Key saved successfully", Toast.LENGTH_SHORT).show()
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(

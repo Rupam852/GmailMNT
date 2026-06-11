@@ -33,6 +33,18 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val selectedFolder = MutableStateFlow("INBOX") // INBOX, SENT, DRAFT, TRASH
     val activeEditingDraftId = MutableStateFlow<String?>(null)
 
+    init {
+        // Automatically trigger sync on start and run periodic refresh every 30 seconds
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1000)
+            triggerSyncAll()
+            while (true) {
+                kotlinx.coroutines.delay(30000)
+                triggerSyncAll()
+            }
+        }
+    }
+
     // Accounts & Filtering Stream combines
     // Multi‑select state for bulk actions
     val selectedMailIds = MutableStateFlow<Set<String>>(emptySet())
@@ -401,6 +413,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     category = category
                 )
                 repository.insertMessage(sentMsg)
+                triggerSyncAll() // Auto-fetch new emails immediately after sending!
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         getApplication(),
