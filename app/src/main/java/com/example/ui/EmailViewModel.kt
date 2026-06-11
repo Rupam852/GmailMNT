@@ -32,15 +32,18 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val customTags = MutableStateFlow<Set<String>>(preferences.customTags)
     val selectedFolder = MutableStateFlow("INBOX") // INBOX, SENT, DRAFT, TRASH
     val activeEditingDraftId = MutableStateFlow<String?>(null)
+    val isAppInForeground = MutableStateFlow(true)
 
     init {
-        // Automatically trigger sync on start and run periodic refresh every 30 seconds
+        // Automatically trigger sync on start and run periodic refresh every 15 seconds when active
         viewModelScope.launch {
             kotlinx.coroutines.delay(1000)
             triggerSyncAll()
             while (true) {
-                kotlinx.coroutines.delay(30000)
-                triggerSyncAll()
+                kotlinx.coroutines.delay(15000)
+                if (isAppInForeground.value) {
+                    triggerSyncAll()
+                }
             }
         }
     }

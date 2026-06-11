@@ -75,6 +75,23 @@ fun MainAppCompose(
     val isGetStartedCompleted by viewModel.isGetStartedCompleted.collectAsState()
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
 
+    // Smart Foreground Active Live-Sync Observer
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.isAppInForeground.value = true
+                viewModel.triggerSyncAll()
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                viewModel.isAppInForeground.value = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // Handle deep link intents for successful Gmail linkage from Render callback
     LaunchedEffect(intentData) {
         val uri = intentData?.data
