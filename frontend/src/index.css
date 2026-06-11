@@ -335,140 +335,6 @@ a {
   margin-top: 2px;
 }
 
-/* Phone Mockup */
-.hero-phone-mockup {
-  position: relative;
-  z-index: 1;
-  margin-top: 60px;
-  display: flex;
-  justify-content: center;
-}
-
-.phone-frame {
-  width: 280px;
-  height: 500px;
-  background: #1a1a2e;
-  border-radius: 36px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5), 0 0 60px rgba(99, 102, 241, 0.1);
-}
-
-.phone-notch {
-  width: 120px;
-  height: 24px;
-  background: #0a0a1a;
-  border-radius: 0 0 16px 16px;
-  margin: 0 auto;
-}
-
-.phone-screen {
-  padding: 16px;
-  height: calc(100% - 24px);
-  display: flex;
-  flex-direction: column;
-}
-
-.phone-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.phone-avatar {
-  width: 28px;
-  height: 28px;
-  background: var(--gradient-1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.phone-title-text {
-  flex: 1;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.phone-icons {
-  display: flex;
-  gap: 12px;
-  color: var(--text-muted);
-}
-
-.phone-email-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 8px;
-  border-radius: 10px;
-  margin-bottom: 4px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.email-avatar-0, .email-avatar-1, .email-avatar-2 {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
-}
-.email-avatar-0 { background: #6366F1; }
-.email-avatar-1 { background: #EC4899; }
-.email-avatar-2 { background: #10B981; }
-
-.email-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.email-sender {
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-
-.email-subject {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.email-time {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.phone-fab {
-  position: absolute;
-  bottom: 24px;
-  right: 24px;
-  width: 44px;
-  height: 44px;
-  background: var(--gradient-1);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-}
-
 /* ============================================
    Section Headers
    ============================================ */
@@ -1129,50 +995,6 @@ a {
     font-size: 0.65rem;
   }
 
-  /* Phone Mockup */
-  .hero-phone-mockup {
-    margin-top: 40px;
-  }
-
-  .phone-frame {
-    width: 220px;
-    height: 380px;
-  }
-
-  .phone-screen {
-    padding: 12px;
-  }
-
-  .phone-header {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-  }
-
-  .phone-email-row {
-    padding: 8px 6px;
-  }
-
-  .email-avatar-0, .email-avatar-1, .email-avatar-2 {
-    width: 26px;
-    height: 26px;
-    font-size: 0.6rem;
-  }
-
-  .email-sender {
-    font-size: 0.65rem;
-  }
-
-  .email-subject {
-    font-size: 0.55rem;
-  }
-
-  .phone-fab {
-    width: 36px;
-    height: 36px;
-    bottom: 16px;
-    right: 16px;
-  }
-
   /* Features */
   .features-section {
     padding: 60px 16px;
@@ -1428,11 +1250,6 @@ a {
 
   .stat-value {
     font-size: 1rem;
-  }
-
-  .phone-frame {
-    width: 190px;
-    height: 340px;
   }
 
   .section-title {

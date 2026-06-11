@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   Mail, Shield, Smartphone, Zap, Lock, RefreshCw, Fingerprint,
-  Moon, Send, Paperclip, Undo2, Bell, Search, Archive, Trash2,
+  Moon, Paperclip, Undo2, Bell, Search, Archive, Trash2,
   Download, ChevronRight, Star, Clock, Wifi, WifiOff, Github,
   Heart, ArrowRight, Check, Sparkles, Layers, Users, MessageSquare
 } from 'lucide-react';
@@ -220,49 +220,6 @@ function HeroSection() {
         </motion.div>
       </div>
 
-      <motion.div
-        className="hero-phone-mockup"
-        initial={{ opacity: 0, y: 80, rotateX: 10 }}
-        animate={{ opacity: 1, y: 0, rotateX: 0 }}
-        transition={{ delay: 0.8, duration: 0.8, ease: "easeOut" }}
-      >
-        <div className="phone-frame">
-          <div className="phone-notch" />
-          <div className="phone-screen">
-            <div className="phone-header">
-              <div className="phone-avatar">G</div>
-              <div className="phone-title-text">Inbox</div>
-              <div className="phone-icons">
-                <Search size={14} /> <Archive size={14} />
-              </div>
-            </div>
-            {['Primary', 'Social', 'Updates'].map((cat, i) => (
-              <motion.div
-                key={i}
-                className="phone-email-row"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.2 + i * 0.2, duration: 0.4 }}
-              >
-                <div className={`email-avatar-${i}`}>{['A', 'B', 'C'][i]}</div>
-                <div className="email-info">
-                  <div className="email-sender">{['Alex Johnson', 'Beth Williams', 'Claude Dev'][i]}</div>
-                  <div className="email-subject">{['Project update...', 'Meeting tomorrow', 'Welcome aboard!'][i]}</div>
-                </div>
-                <div className="email-time">{['2m', '1h', '3h'][i]}</div>
-              </motion.div>
-            ))}
-            <motion.div
-              className="phone-fab"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 2, duration: 0.3, type: "spring" }}
-            >
-              <Send size={16} />
-            </motion.div>
-          </div>
-        </div>
-      </motion.div>
     </section>
   );
 }
