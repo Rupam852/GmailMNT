@@ -40,7 +40,7 @@ class PreferenceManager(context: Context) {
                     )
                     sharedPrefsInstance = encryptedPrefs
                     encryptedPrefs
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     val plainPrefs = context.applicationContext.getSharedPreferences("gemini_mail_prefs_secure", Context.MODE_PRIVATE)
                     sharedPrefsInstance = plainPrefs
                     plainPrefs

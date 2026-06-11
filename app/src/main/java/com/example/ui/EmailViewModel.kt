@@ -564,6 +564,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerSyncAll(isManual: Boolean = false) {
         viewModelScope.launch {
             syncMutex.withLock {
+                if (isManualSyncActive || isBackgroundSyncActive) {
+                    // Already syncing, skip concurrent execution to prevent DB locks
+                    return@launch
+                }
+
                 if (isManual) {
                     isManualSyncActive = true
                     isRefreshing.value = true
@@ -575,20 +580,19 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading.value = true
                     }
                 }
-            }
-            try {
-                // If the access token is expiring soon, trigger background Render renew
-                val activeAccounts = repository.allAccounts.first()
-                for (account in activeAccounts) {
-                    if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
-                        repository.refreshAccessToken(account.email, renderBackendUrl.value)
+
+                try {
+                    // If the access token is expiring soon, trigger background Render renew
+                    val activeAccounts = repository.allAccounts.first()
+                    for (account in activeAccounts) {
+                        if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+                            repository.refreshAccessToken(account.email, renderBackendUrl.value)
+                        }
+                        repository.syncEmailsForAccount(account.email)
                     }
-                    repository.syncEmailsForAccount(account.email)
-                }
-            } catch (e: Exception) {
-                Log.e("ViewModel", "Sync Error", e)
-            } finally {
-                syncMutex.withLock {
+                } catch (e: Exception) {
+                    Log.e("ViewModel", "Sync Error", e)
+                } finally {
                     if (isManual) {
                         isManualSyncActive = false
                     } else {
