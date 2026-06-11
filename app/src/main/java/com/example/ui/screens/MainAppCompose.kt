@@ -1427,9 +1427,21 @@ fun InboxTabScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Options", fontWeight = FontWeight.Bold)
-                        IconButton(onClick = { longPressedMail = null }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close options dialog")
+                        Text(
+                            text = "Options",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { longPressedMail = null },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close options dialog",
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
                         }
                     }
                 },
@@ -2378,62 +2390,45 @@ fun AddAccountSelectionDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Link Email Client Profile", fontWeight = FontWeight.ExtraBold)
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close dialog")
+                Text(
+                    text = "Link Email Client Profile",
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close dialog",
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
                 }
             }
         },
         text = {
             Text(
-                "You can link your active Google account securely using OAuth, or add a simulated sandbox profile for local offline testing.",
+                "You can link your active Google account securely using OAuth. This will redirect you to the Google login screen.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
         },
         confirmButton = {
-            Column(
+            Button(
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
+                    activity.startActivity(intent)
+                    onDismiss()
+                },
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("$renderUrl/auth"))
-                        activity.startActivity(intent)
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = GrowwTeal, contentColor = Color.White),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Lock, "OAuth secure verification", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Link Google Account", fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = {
-                        viewModel.handleOAuthSuccess(
-                            email = "simulated@gmail-mnt.local",
-                            accessToken = "mock_access_token",
-                            refreshToken = "", // Empty refresh token indicates simulated profile
-                            expiresAt = System.currentTimeMillis() + 3600 * 1000,
-                            displayName = "Sandbox Tester",
-                            profilePictureUrl = ""
-                        )
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Face, "Sandbox profile creation", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Add Sandbox Profile", fontWeight = FontWeight.Bold)
-                }
+                Icon(Icons.Default.Lock, "OAuth secure verification", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Link Google Account", fontWeight = FontWeight.Bold)
             }
         }
     )
