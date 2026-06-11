@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -507,6 +508,18 @@ fun DashboardScreen(
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
+
+    val hasActiveFilters = selectedFolder.uppercase() != "INBOX" || selectedCategory != "All" || selectedTag != "All"
+
+    BackHandler(enabled = selectedTab != 0 || hasActiveFilters) {
+        if (selectedTab != 0) {
+            viewModel.selectedTab.value = 0
+        } else {
+            viewModel.selectedFolder.value = "INBOX"
+            viewModel.selectedCategory.value = "All"
+            viewModel.selectedTag.value = "All"
+        }
+    }
 
     var showManageTagsDialogSide by remember { mutableStateOf(false) }
 
