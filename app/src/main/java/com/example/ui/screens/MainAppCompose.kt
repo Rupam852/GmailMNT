@@ -463,13 +463,17 @@ fun DashboardScreen(
     activity: FragmentActivity
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Inbox, 1: Compose, 2: Settings
-    var inboxLoaded by remember { mutableStateOf(false) }
-    var composeLoaded by remember { mutableStateOf(false) }
-    var settingsLoaded by remember { mutableStateOf(false) }
+    var inboxLoaded by remember { mutableStateOf(selectedTab == 0) }
+    var composeLoaded by remember { mutableStateOf(selectedTab == 1) }
+    var settingsLoaded by remember { mutableStateOf(selectedTab == 2) }
 
-    if (selectedTab == 0) inboxLoaded = true
-    if (selectedTab == 1) composeLoaded = true
-    if (selectedTab == 2) settingsLoaded = true
+    LaunchedEffect(selectedTab) {
+        when (selectedTab) {
+            0 -> inboxLoaded = true
+            1 -> composeLoaded = true
+            2 -> settingsLoaded = true
+        }
+    }
 
     var showDetailDialog by remember { mutableStateOf(false) }
     
