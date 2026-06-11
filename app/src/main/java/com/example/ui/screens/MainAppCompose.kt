@@ -485,19 +485,9 @@ fun DashboardScreen(
     viewModel: EmailViewModel,
     activity: FragmentActivity
 ) {
+
+
     val selectedTab by viewModel.selectedTab.collectAsState()
-    var inboxLoaded by remember { mutableStateOf(selectedTab == 0) }
-    var composeLoaded by remember { mutableStateOf(selectedTab == 1) }
-    var settingsLoaded by remember { mutableStateOf(selectedTab == 2) }
-
-    LaunchedEffect(selectedTab) {
-        when (selectedTab) {
-            0 -> inboxLoaded = true
-            1 -> composeLoaded = true
-            2 -> settingsLoaded = true
-        }
-    }
-
     var showDetailDialog by remember { mutableStateOf(false) }
     
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
@@ -855,37 +845,21 @@ fun DashboardScreen(
                         .weight(1f)
                         .fillMaxHeight()
                 ) {
-                    if (inboxLoaded) {
-                        Box(
-                            modifier = if (selectedTab == 0) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                        ) {
-                            InboxTabScreen(
-                                viewModel = viewModel,
-                                onMailClick = { msgId ->
-                                    viewModel.selectMailId(msgId)
-                                    showDetailDialog = true
-                                },
-                                onDeleteMail = onDeleteMail,
-                                onArchiveMail = onArchiveMail,
-                                onUnarchiveMail = onUnarchiveMail
-                            )
-                        }
-                    }
-                    if (composeLoaded) {
-                        Box(
-                            modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                        ) {
-                            ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                                viewModel.selectedTab.value = 0
-                            })
-                        }
-                    }
-                    if (settingsLoaded) {
-                        Box(
-                            modifier = if (selectedTab == 2) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                        ) {
-                            SettingsTabScreen(viewModel = viewModel, activity = activity)
-                        }
+                    when (selectedTab) {
+                        0 -> InboxTabScreen(
+                            viewModel = viewModel,
+                            onMailClick = { msgId ->
+                                viewModel.selectMailId(msgId)
+                                showDetailDialog = true
+                            },
+                            onDeleteMail = onDeleteMail,
+                            onArchiveMail = onArchiveMail,
+                            onUnarchiveMail = onUnarchiveMail
+                        )
+                        1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                            viewModel.selectedTab.value = 0
+                        })
+                        2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
                     }
                 }
             }
@@ -942,37 +916,21 @@ fun DashboardScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                if (inboxLoaded) {
-                    Box(
-                        modifier = if (selectedTab == 0) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                    ) {
-                        InboxTabScreen(
-                            viewModel = viewModel,
-                            onMailClick = { msgId ->
-                                viewModel.selectMailId(msgId)
-                                showDetailDialog = true
-                            },
-                            onDeleteMail = onDeleteMail,
-                            onArchiveMail = onArchiveMail,
-                            onUnarchiveMail = onUnarchiveMail
-                        )
-                    }
-                }
-                if (composeLoaded) {
-                    Box(
-                        modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                    ) {
-                        ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                            viewModel.selectedTab.value = 0
-                        })
-                    }
-                }
-                if (settingsLoaded) {
-                    Box(
-                        modifier = if (selectedTab == 2) Modifier.fillMaxSize() else Modifier.size(0.dp)
-                    ) {
-                        SettingsTabScreen(viewModel = viewModel, activity = activity)
-                    }
+                when (selectedTab) {
+                    0 -> InboxTabScreen(
+                        viewModel = viewModel,
+                        onMailClick = { msgId ->
+                            viewModel.selectMailId(msgId)
+                            showDetailDialog = true
+                        },
+                        onDeleteMail = onDeleteMail,
+                        onArchiveMail = onArchiveMail,
+                        onUnarchiveMail = onUnarchiveMail
+                    )
+                    1 -> ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
+                        viewModel.selectedTab.value = 0
+                    })
+                    2 -> SettingsTabScreen(viewModel = viewModel, activity = activity)
                 }
             }
         }
