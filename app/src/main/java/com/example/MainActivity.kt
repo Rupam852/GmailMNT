@@ -6,8 +6,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModelProvider
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import com.example.util.EmailSyncWorker
 import com.example.ui.EmailViewModel
 import com.example.ui.screens.MainAppCompose
+import java.util.concurrent.TimeUnit
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
     private lateinit var viewModel: EmailViewModel
@@ -27,6 +34,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
         viewModel = ViewModelProvider(this)[EmailViewModel::class.java]
         
+        // Schedule periodic background email synchronization using WorkManager
+        scheduleBackgroundEmailSync()
+
         // Handle deep link from launch intent
         intentState.value = intent
 
@@ -38,6 +48,23 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 onClearIntent = { intentState.value = null }
             )
         }
+    }
+
+    private fun scheduleBackgroundEmailSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val syncRequest = PeriodicWorkRequestBuilder<EmailSyncWorker>(
+            15, TimeUnit.MINUTES
+        ).setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "EmailBackgroundSyncWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
