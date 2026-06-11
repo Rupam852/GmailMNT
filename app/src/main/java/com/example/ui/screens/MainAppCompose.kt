@@ -484,7 +484,7 @@ fun DashboardScreen(
     viewModel: EmailViewModel,
     activity: FragmentActivity
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Inbox, 1: Compose, 2: Settings
+    val selectedTab by viewModel.selectedTab.collectAsState()
     var inboxLoaded by remember { mutableStateOf(selectedTab == 0) }
     var composeLoaded by remember { mutableStateOf(selectedTab == 1) }
     var settingsLoaded by remember { mutableStateOf(selectedTab == 2) }
@@ -613,7 +613,7 @@ fun DashboardScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (isFolderSelected) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
                                 .clickable {
-                                    selectedTab = 0
+                                    viewModel.selectedTab.value = 0
                                     viewModel.selectedFolder.value = folderCode
                                     viewModel.selectedCategory.value = "All"
                                     viewModel.selectedTag.value = "All"
@@ -677,7 +677,7 @@ fun DashboardScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (isCatSelected) GrowwTeal.copy(alpha = 0.08f) else Color.Transparent)
                                 .clickable {
-                                    selectedTab = 0
+                                    viewModel.selectedTab.value = 0
                                     viewModel.selectedFolder.value = "INBOX"
                                     viewModel.selectedCategory.value = catCode
                                     viewModel.selectedTag.value = "All"
@@ -716,7 +716,7 @@ fun DashboardScreen(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isTagSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
                                     .clickable {
-                                        selectedTab = 0
+                                        viewModel.selectedTab.value = 0
                                         viewModel.selectedTag.value = tag
                                     }
                                     .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -778,7 +778,7 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (selectedTab == 1) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
-                            .clickable { selectedTab = 1 }
+                            .clickable { viewModel.selectedTab.value = 1 }
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Row(
@@ -805,7 +805,7 @@ fun DashboardScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (selectedTab == 2) GrowwTeal.copy(alpha = 0.15f) else Color.Transparent)
-                            .clickable { selectedTab = 2 }
+                            .clickable { viewModel.selectedTab.value = 2 }
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Row(
@@ -863,7 +863,7 @@ fun DashboardScreen(
                             modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
                         ) {
                             ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                                selectedTab = 0
+                                viewModel.selectedTab.value = 0
                             })
                         }
                     }
@@ -893,7 +893,7 @@ fun DashboardScreen(
                 ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
+                        onClick = { viewModel.selectedTab.value = 0 },
                         icon = { Icon(Icons.Default.MailOutline, "Inbox") },
                         label = { Text("Inbox") },
                         colors = NavigationBarItemDefaults.colors(
@@ -904,7 +904,7 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = { viewModel.selectedTab.value = 1 },
                         icon = { Icon(Icons.Default.Add, "Compose") },
                         label = { Text("Compose") },
                         colors = NavigationBarItemDefaults.colors(
@@ -915,7 +915,7 @@ fun DashboardScreen(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
+                        onClick = { viewModel.selectedTab.value = 2 },
                         icon = { Icon(Icons.Default.Settings, "Settings") },
                         label = { Text("Settings") },
                         colors = NavigationBarItemDefaults.colors(
@@ -950,7 +950,7 @@ fun DashboardScreen(
                         modifier = if (selectedTab == 1) Modifier.fillMaxSize() else Modifier.size(0.dp)
                     ) {
                         ComposeTabScreen(viewModel = viewModel, onComposeSuccess = {
-                            selectedTab = 0
+                            viewModel.selectedTab.value = 0
                         })
                     }
                 }
@@ -988,7 +988,7 @@ fun DashboardScreen(
                 viewModel.selectMailId(null)
             },
             onForward = {
-                selectedTab = 1
+                viewModel.selectedTab.value = 1
             }
         )
     }
@@ -2086,6 +2086,7 @@ fun SettingsTabScreen(
     val accounts by viewModel.accounts.collectAsState()
 
     var showAddAccountDialog by remember { mutableStateOf(false) }
+    val settingsContext = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -2354,7 +2355,6 @@ fun SettingsTabScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
         // Privacy Policy link
-        val context = LocalContext.current
         Text(
             text = "Privacy Policy",
             style = MaterialTheme.typography.bodyMedium.copy(
@@ -2364,7 +2364,7 @@ fun SettingsTabScreen(
             modifier = Modifier
                 .clickable {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("${renderBackendUrl}/privacy-policy"))
-                    context.startActivity(intent)
+                    settingsContext.startActivity(intent)
                 }
                 .padding(8.dp)
         )

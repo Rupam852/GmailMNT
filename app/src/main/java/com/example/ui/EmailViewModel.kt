@@ -36,6 +36,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val selectedFolder = MutableStateFlow("INBOX") // INBOX, SENT, DRAFT, TRASH
     val activeEditingDraftId = MutableStateFlow<String?>(null)
     val isAppInForeground = MutableStateFlow(true)
+    val selectedTab = MutableStateFlow(0) // 0: Inbox, 1: Compose, 2: Settings
 
     // Track which notification IDs have already been cancelled to avoid repeated calls
     private val cancelledNotificationIds = mutableSetOf<String>()
