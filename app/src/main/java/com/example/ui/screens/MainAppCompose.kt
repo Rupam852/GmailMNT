@@ -3,6 +3,8 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -69,6 +71,20 @@ fun MainAppCompose(
     onClearIntent: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf("splash") }
+
+    // Request notification permission dynamically at launch in Compose
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        val permissionContext = LocalContext.current
+        val permission = android.Manifest.permission.POST_NOTIFICATIONS
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { }
+        LaunchedEffect(Unit) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(permissionContext, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                launcher.launch(permission)
+            }
+        }
+    }
     
     // Read States from ViewModel
     val isDarkMode by viewModel.isDarkMode.collectAsState()
