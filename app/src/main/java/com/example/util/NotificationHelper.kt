@@ -36,7 +36,7 @@ object NotificationHelper {
             .setAutoCancel(true)
 
         try {
-            val notificationManager = NotificationManagerCompat.from(context)
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             // Use stable hashcode of emailId as notification ID so we can cancel it when read!
             notificationManager.notify(emailId.hashCode(), builder.build())
         } catch (e: SecurityException) {
@@ -47,7 +47,7 @@ object NotificationHelper {
 
     fun cancelNotification(context: Context, emailId: String) {
         try {
-            val notificationManager = NotificationManagerCompat.from(context)
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(emailId.hashCode())
         } catch (e: Exception) {
             e.printStackTrace()

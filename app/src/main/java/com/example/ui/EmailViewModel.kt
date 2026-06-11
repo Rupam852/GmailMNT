@@ -9,6 +9,8 @@ import com.example.util.NotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -201,6 +203,10 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val geminiResponse = MutableStateFlow("")
     val isGeneratingDraft = MutableStateFlow(false)
 
+    private val syncMutex = Mutex()
+    private var isManualSyncActive = false
+    private var isBackgroundSyncActive = false
+
     init {
         // No default simulated account is created to ensure a clean first-time user experience.
     }
@@ -285,6 +291,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteMail(id: String) {
         viewModelScope.launch {
+            com.example.util.NotificationHelper.cancelNotification(getApplication(), id)
             val email = repository.getMessageById(id)
             if (email != null) {
                 if (email.label.uppercase() == "TRASH") {
@@ -311,6 +318,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
     fun archiveMail(id: String) {
         viewModelScope.launch {
+            com.example.util.NotificationHelper.cancelNotification(getApplication(), id)
             val email = repository.getMessageById(id)
             if (email != null) {
                 repository.updateMessageLabel(id, "ARCHIVE")
@@ -471,13 +479,17 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     // Manual or scheduled trigger syncing
     fun triggerSyncAll(isManual: Boolean = false) {
         viewModelScope.launch {
-            if (isManual) {
-                isRefreshing.value = true
-            } else {
-                // Background/periodic sync: only show isLoading if we don't have messages yet
-                val currentMessages = repository.allMessages.first()
-                if (currentMessages.isEmpty()) {
-                    isLoading.value = true
+            syncMutex.withLock {
+                if (isManual) {
+                    isManualSyncActive = true
+                    isRefreshing.value = true
+                } else {
+                    isBackgroundSyncActive = true
+                    // Background/periodic sync: only show isLoading if we don't have messages yet
+                    val currentMessages = repository.allMessages.first()
+                    if (currentMessages.isEmpty()) {
+                        isLoading.value = true
+                    }
                 }
             }
             try {
@@ -492,8 +504,22 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("ViewModel", "Sync Error", e)
             } finally {
-                isRefreshing.value = false
-                isLoading.value = false
+                syncMutex.withLock {
+                    if (isManual) {
+                        isManualSyncActive = false
+                    } else {
+                        isBackgroundSyncActive = false
+                    }
+                    
+                    // Only clear refreshing if no manual syncs are active
+                    if (!isManualSyncActive) {
+                        isRefreshing.value = false
+                    }
+                    // Only clear loading if background sync is done or database is not empty
+                    if (!isBackgroundSyncActive || repository.allMessages.first().isNotEmpty()) {
+                        isLoading.value = false
+                    }
+                }
             }
         }
     }

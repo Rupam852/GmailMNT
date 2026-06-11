@@ -306,6 +306,9 @@ class EmailRepository(private val context: Context) {
                         tagsString = existing.tagsString
                     )
                 } else {
+                    if (!existing.isRead && msg.isRead) {
+                        com.example.util.NotificationHelper.cancelNotification(context, msg.id)
+                    }
                     msg.copy(
                         tagsString = existing.tagsString
                     )

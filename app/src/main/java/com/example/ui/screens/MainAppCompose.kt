@@ -869,9 +869,14 @@ fun DashboardScreen(
 
     // Modal Sheet Detail Dialogue
     val activeSelectedMail by viewModel.selectedMail.collectAsState()
+    LaunchedEffect(showDetailDialog, activeSelectedMail?.id) {
+        val mailId = activeSelectedMail?.id
+        if (showDetailDialog && mailId != null) {
+            viewModel.markAsRead(mailId)
+        }
+    }
+
     if (showDetailDialog && activeSelectedMail != null) {
-        viewModel.markAsRead(activeSelectedMail!!.id)
-        
         EmailDetailDialog(
             mail = activeSelectedMail!!,
             viewModel = viewModel,
