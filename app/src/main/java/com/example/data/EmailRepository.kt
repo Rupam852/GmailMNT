@@ -142,6 +142,36 @@ class EmailRepository(private val context: Context) {
     suspend fun syncEmailsForAccount(accountEmail: String) = withContext(Dispatchers.IO) {
         val account = dao.getAccountByEmail(accountEmail)
         
+        val pref = PreferenceManager(context)
+        if (account != null && !accountEmail.lowercase().contains("simulated")) {
+            val savedHistoryId = pref.getLastHistoryId(accountEmail)
+            var activeToken = account.accessToken
+            if (account.refreshToken.isNotEmpty() && account.expiresAt < System.currentTimeMillis() + 5 * 60 * 1000) {
+                val backendUrl = pref.renderBackendUrl
+                val refreshed = refreshAccessToken(accountEmail, backendUrl)
+                if (refreshed) {
+                    activeToken = dao.getAccountByEmail(accountEmail)?.accessToken ?: account.accessToken
+                }
+            }
+
+            if (!savedHistoryId.isNullOrEmpty()) {
+                Log.d("EmailRepository", "Attempting differential sync using historyId: $savedHistoryId")
+                val result = syncEmailsHistory(accountEmail, activeToken, savedHistoryId)
+                when (result) {
+                    is HistorySyncResult.Success -> {
+                        Log.d("EmailRepository", "Differential history sync succeeded!")
+                        return@withContext
+                    }
+                    is HistorySyncResult.Expired -> {
+                        Log.w("EmailRepository", "History ID expired, falling back to full sync.")
+                    }
+                    is HistorySyncResult.Error -> {
+                        Log.e("EmailRepository", "History sync failed: ${result.message}, falling back to full sync.")
+                    }
+                }
+            }
+        }
+        
         // Populate realistic clean, production-ready emails
         val currentTime = System.currentTimeMillis()
         val mockMessages = if (accountEmail.lowercase().contains("simulated") || account == null) {
@@ -230,7 +260,6 @@ class EmailRepository(private val context: Context) {
                 if (response.code == 401) {
                     response.close()
                     Log.w("EmailRepository", "401 Unauthorized syncing emails. Refreshing token...")
-                    val pref = PreferenceManager(context)
                     val backendUrl = pref.renderBackendUrl
                     val refreshed = refreshAccessToken(accountEmail, backendUrl)
                     if (refreshed) {
@@ -268,6 +297,11 @@ class EmailRepository(private val context: Context) {
                                 }.awaitAll()
                             }
                             detailsList.filterNotNull().forEach { list.add(it) }
+                            
+                            val currentHistoryId = fetchCurrentHistoryId(activeToken)
+                            if (currentHistoryId != null) {
+                                pref.saveLastHistoryId(accountEmail, currentHistoryId)
+                            }
                         }
                     } else {
                         val errBody = resp.body?.string() ?: ""
@@ -546,7 +580,9 @@ class EmailRepository(private val context: Context) {
             // Check System Config (it should hold the secret if set in panel)
             com.example.BuildConfig.GEMINI_API_KEY
         }
-
+        generateGeminiResponse(apiKey, prompt, systemInstruction)
+    }
+    suspend fun generateGeminiResponse(apiKey: String, prompt: String, systemInstruction: String): String = withContext(Dispatchers.IO) {
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
             return@withContext "Error: Gemini API Key is missing. Please configure it in Settings."
         }
@@ -556,14 +592,32 @@ class EmailRepository(private val context: Context) {
             systemInstruction = Content(parts = listOf(Part(text = systemInstruction)))
         )
 
-        try {
-            val response = GeminiRetrofitClient.service.generateContent(apiKey, request)
-            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text 
-                ?: "No text response generated."
-        } catch (e: Exception) {
-            Log.e("EmailRepository", "Error calling Gemini", e)
-            "AI Assistant Generation Error: ${e.localizedMessage ?: "Connection Timeout"}"
+        val models = listOf(
+            "v1beta/models/gemini-2.5-flash:generateContent",
+            "v1beta/models/gemini-2.0-flash:generateContent",
+            "v1beta/models/gemini-1.5-flash:generateContent",
+            "v1beta/models/gemini-1.5-pro:generateContent"
+        )
+
+        var lastError: Exception? = null
+        for (modelUrl in models) {
+            try {
+                Log.d("EmailRepository", "Attempting content generation with model: $modelUrl")
+                val response = GeminiRetrofitClient.service.generateContent(modelUrl, apiKey, request)
+                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                if (!text.isNullOrEmpty()) {
+                    Log.d("EmailRepository", "Content successfully generated using model: $modelUrl")
+                    return@withContext text
+                }
+            } catch (e: Exception) {
+                Log.w("EmailRepository", "Gemini content generation failed with model $modelUrl: ${e.message}")
+                lastError = e
+            }
         }
+
+        val errorMsg = lastError?.localizedMessage ?: "Connection Timeout"
+        Log.e("EmailRepository", "All Gemini models in fallback chain failed.", lastError)
+        "AI Assistant Generation Error: $errorMsg"
     }
 
     suspend fun sendEmail(fromEmail: String, toEmail: String, subject: String, body: String, threadId: String? = null): Boolean = withContext(Dispatchers.IO) {
@@ -705,4 +759,164 @@ class EmailRepository(private val context: Context) {
             false
         }
     }
+
+    private suspend fun fetchCurrentHistoryId(accessToken: String): String? {
+        val url = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $accessToken")
+            .build()
+        try {
+            okHttpClient.newCall(request).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string() ?: ""
+                    return JSONObject(body).optString("historyId").takeIf { it.isNotEmpty() }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error fetching mailbox profile historyId", e)
+        }
+        return null
+    }
+
+    suspend fun syncEmailsHistory(
+        accountEmail: String,
+        accessToken: String,
+        startHistoryId: String
+    ): HistorySyncResult = withContext(Dispatchers.IO) {
+        val url = "https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=$startHistoryId"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $accessToken")
+            .build()
+
+        try {
+            okHttpClient.newCall(request).execute().use { resp ->
+                if (resp.code == 404 || resp.code == 400) {
+                    return@withContext HistorySyncResult.Expired
+                }
+                if (!resp.isSuccessful) {
+                    return@withContext HistorySyncResult.Error("API error: ${resp.code}")
+                }
+                val stringRes = resp.body?.string() ?: ""
+                val root = JSONObject(stringRes)
+                val newHistoryId = root.optString("historyId")
+                
+                val historyArray = root.optJSONArray("history")
+                if (historyArray != null) {
+                    for (i in 0 until historyArray.length()) {
+                        val histObj = historyArray.getJSONObject(i)
+                        
+                        val added = histObj.optJSONArray("messagesAdded")
+                        if (added != null) {
+                            for (j in 0 until added.length()) {
+                                val msgItem = added.getJSONObject(j).optJSONObject("message")
+                                if (msgItem != null) {
+                                    val msgId = msgItem.getString("id")
+                                    val fullMsg = fetchGmailDetails(msgId, accessToken, accountEmail)
+                                    if (fullMsg != null) {
+                                        dao.insertMessage(fullMsg)
+                                        if (!fullMsg.isRead && fullMsg.label == "INBOX") {
+                                            com.example.util.NotificationHelper.showEmailNotification(
+                                                context,
+                                                fullMsg.id,
+                                                fullMsg.senderName,
+                                                fullMsg.subject,
+                                                fullMsg.body.take(80)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        val deleted = histObj.optJSONArray("messagesDeleted")
+                        if (deleted != null) {
+                            for (j in 0 until deleted.length()) {
+                                val msgItem = deleted.getJSONObject(j).optJSONObject("message")
+                                if (msgItem != null) {
+                                    val msgId = msgItem.getString("id")
+                                    dao.deleteMessageById(msgId)
+                                    com.example.util.NotificationHelper.cancelNotification(context, msgId)
+                                }
+                            }
+                        }
+
+                        val labelsAdded = histObj.optJSONArray("labelsAdded")
+                        if (labelsAdded != null) {
+                            for (j in 0 until labelsAdded.length()) {
+                                val item = labelsAdded.getJSONObject(j)
+                                val msgItem = item.optJSONObject("message")
+                                val labelIds = item.optJSONArray("labelIds")
+                                if (msgItem != null && labelIds != null) {
+                                    val msgId = msgItem.getString("id")
+                                    val existing = dao.getMessageById(msgId)
+                                    if (existing != null) {
+                                        var updated: EmailMessage = existing
+                                        for (k in 0 until labelIds.length()) {
+                                            val label = labelIds.getString(k)
+                                            if (label == "UNREAD") {
+                                                updated = updated.copy(isRead = false)
+                                            } else if (label == "STARRED") {
+                                                updated = updated.copy(isStarred = true)
+                                            } else if (label == "TRASH") {
+                                                updated = updated.copy(label = "TRASH")
+                                            } else if (label == "INBOX") {
+                                                updated = updated.copy(label = "INBOX")
+                                            } else if (label == "SPAM") {
+                                                updated = updated.copy(label = "SPAM")
+                                            }
+                                        }
+                                        dao.updateMessage(updated)
+                                    }
+                                }
+                            }
+                        }
+
+                        val labelsRemoved = histObj.optJSONArray("labelsRemoved")
+                        if (labelsRemoved != null) {
+                            for (j in 0 until labelsRemoved.length()) {
+                                val item = labelsRemoved.getJSONObject(j)
+                                val msgItem = item.optJSONObject("message")
+                                val labelIds = item.optJSONArray("labelIds")
+                                if (msgItem != null && labelIds != null) {
+                                    val msgId = msgItem.getString("id")
+                                    val existing = dao.getMessageById(msgId)
+                                    if (existing != null) {
+                                        var updated: EmailMessage = existing
+                                        for (k in 0 until labelIds.length()) {
+                                            val label = labelIds.getString(k)
+                                            if (label == "UNREAD") {
+                                                updated = updated.copy(isRead = true)
+                                                com.example.util.NotificationHelper.cancelNotification(context, msgId)
+                                            } else if (label == "STARRED") {
+                                                updated = updated.copy(isStarred = false)
+                                            } else if (label == "INBOX") {
+                                                updated = updated.copy(label = "ARCHIVE")
+                                            }
+                                        }
+                                        dao.updateMessage(updated)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (newHistoryId.isNotEmpty()) {
+                    PreferenceManager(context).saveLastHistoryId(accountEmail, newHistoryId)
+                }
+                HistorySyncResult.Success
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error running Gmail History API sync", e)
+            HistorySyncResult.Error(e.message ?: "Unknown error")
+        }
+    }
+}
+
+sealed class HistorySyncResult {
+    object Success : HistorySyncResult()
+    object Expired : HistorySyncResult()
+    data class Error(val message: String) : HistorySyncResult()
 }

@@ -418,7 +418,12 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         threadId: String? = null
     ) {
         viewModelScope.launch {
-            val success = repository.sendEmail(fromEmail, toEmail, subject, body, threadId)
+            val hasNetwork = isNetworkAvailable()
+            var success = false
+            if (hasNetwork) {
+                success = repository.sendEmail(fromEmail, toEmail, subject, body, threadId)
+            }
+            
             if (success) {
                 val draftId = activeEditingDraftId.value
                 if (draftId != null) {
@@ -449,16 +454,80 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                     ).show()
                 }
             } else {
-                withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(
-                        getApplication(),
-                        "Failed to send email. Check connection or credentials.",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
+                // Save to local outbox database
+                try {
+                    val database = EmailDatabase.getDatabase(getApplication())
+                    val dao = database.emailDao()
+                    dao.insertOutboxMessage(
+                        OutboxMessage(
+                            fromEmail = fromEmail,
+                            toEmail = toEmail,
+                            subject = subject,
+                            body = body,
+                            threadId = threadId
+                        )
+                    )
+
+                    // Schedule Outbox Worker using WorkManager
+                    scheduleOfflineEmailSync()
+
+                    // Delete draft from DB if it was a draft so it doesn't stay in draft list
+                    val draftId = activeEditingDraftId.value
+                    if (draftId != null) {
+                        repository.deleteMessage(draftId)
+                        activeEditingDraftId.value = null
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            getApplication(),
+                            "Offline: Email will be sent when connection is restored.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("EmailViewModel", "Error saving offline email", e)
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            getApplication(),
+                            "Failed to send email. Check connection or credentials.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
     }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getApplication<Application>()
+            .getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val activeNetwork = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun scheduleOfflineEmailSync() {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+            .build()
+
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.example.util.SendEmailWorker>()
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                androidx.work.WorkRequest.MIN_BACKOFF_MILLIS,
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            )
+            .build()
+
+        androidx.work.WorkManager.getInstance(getApplication()).enqueueUniqueWork(
+            "SendOfflineEmails",
+            androidx.work.ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
+    }
+
 
     // Backend deep linking handle
     fun handleOAuthSuccess(

@@ -168,6 +168,7 @@ fun SplashScreen(
     onNavigateToDashboard: () -> Unit
 ) {
     var animateLogoUp by remember { mutableStateOf(false) }
+    var showAuthRetry by remember { mutableStateOf(false) }
     
     // Logo translation coordinates
     val logoOffset: Dp by animateDpAsState(
@@ -182,6 +183,19 @@ fun SplashScreen(
         label = "Logo Scale"
     )
 
+    fun runAuthentication() {
+        BiometricHelper.showBiometricPrompt(
+            activity = activity,
+            onSuccess = {
+                onNavigateToDashboard()
+            },
+            onError = { error ->
+                Toast.makeText(activity, "Biometric verification required to open app.", Toast.LENGTH_SHORT).show()
+                showAuthRetry = true
+            }
+        )
+    }
+
     LaunchedEffect(Unit) {
         delay(1200) // Initial centered showcase
         animateLogoUp = true
@@ -189,16 +203,7 @@ fun SplashScreen(
 
         if (isGetStartedCompleted) {
             if (isBiometricEnabled && BiometricHelper.isBiometricAvailable(activity)) {
-                BiometricHelper.showBiometricPrompt(
-                    activity = activity,
-                    onSuccess = {
-                        onNavigateToDashboard()
-                    },
-                    onError = { error ->
-                        Toast.makeText(activity, "Biometric Auth Bypass / Mode: $error", Toast.LENGTH_SHORT).show()
-                        onNavigateToDashboard() // Fallback gracefully to preserve zero-deadends
-                    }
-                )
+                runAuthentication()
             } else {
                 onNavigateToDashboard()
             }
@@ -267,6 +272,37 @@ fun SplashScreen(
                 color = GrowwTeal,
                 modifier = Modifier.padding(top = 4.dp)
             )
+
+            if (showAuthRetry) {
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        runAuthentication()
+                    },
+                    modifier = Modifier
+                        .padding(horizontal = 48.dp)
+                        .fillMaxWidth(0.6f)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = GrowwTeal,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Unlock icon",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Unlock App",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
         }
     }
 }
@@ -1093,10 +1129,12 @@ fun InboxTabScreen(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Email,
-                                        contentDescription = null,
-                                        tint = if (isAccSelected) GrowwTeal else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    UserAvatar(
+                                        imageUrl = account.profilePictureUrl,
+                                        name = account.displayName.ifEmpty { account.email },
+                                        email = account.email,
+                                        modifier = Modifier.size(24.dp),
+                                        textStyle = MaterialTheme.typography.bodySmall
                                     )
                                 },
                                 onClick = {
@@ -1139,37 +1177,15 @@ fun InboxTabScreen(
                     accounts.find { it.email == selectedAccount } ?: accounts.firstOrNull()
                 }
                 Box(modifier = Modifier.padding(end = 4.dp)) {
-                    Box(
+                    UserAvatar(
+                        imageUrl = activeAccount?.profilePictureUrl,
+                        name = activeAccount?.displayName ?: "All",
+                        email = activeAccount?.email,
                         modifier = Modifier
                             .size(32.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(GrowwTeal, GrowwTealDark)
-                                )
-                            )
                             .testTag("search_profile_avatar"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val profilePic = activeAccount?.profilePictureUrl
-                        if (!profilePic.isNullOrEmpty()) {
-                            coil.compose.AsyncImage(
-                                model = profilePic,
-                                contentDescription = "Active account profile picture",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            val displayName = activeAccount?.displayName ?: "All"
-                            val defaultAvatarUrl = "https://ui-avatars.com/api/?name=${android.net.Uri.encode(displayName)}&background=00d09c&color=fff&size=96"
-                            coil.compose.AsyncImage(
-                                model = defaultAvatarUrl,
-                                contentDescription = "Active account default avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        }
-                    }
+                        textStyle = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -1603,6 +1619,7 @@ fun EmailMessageRowItem(
             UserAvatar(
                 imageUrl = logoUrl,
                 name = mail.senderName.ifEmpty { emailClean },
+                email = emailClean,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -1775,6 +1792,7 @@ fun ComposeTabScreen(
             UserAvatar(
                 imageUrl = fromProfilePic,
                 name = fromDisplayName.ifEmpty { "From" },
+                email = selectedFromEmail,
                 modifier = Modifier.size(40.dp)
             )
 
@@ -1849,6 +1867,7 @@ fun ComposeTabScreen(
             UserAvatar(
                 imageUrl = toLogoUrl,
                 name = recipient.ifEmpty { "To" },
+                email = recipient,
                 modifier = Modifier.size(40.dp)
             )
 
@@ -2027,43 +2046,13 @@ fun SettingsTabScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val profilePic = primaryAccount?.profilePictureUrl
-                if (!profilePic.isNullOrEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                    ) {
-                        coil.compose.AsyncImage(
-                            model = profilePic,
-                            contentDescription = "User profile picture",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
-                    }
-                } else {
-                    val defaultAvatarUrl = primaryAccount?.let { 
-                        "https://ui-avatars.com/api/?name=${android.net.Uri.encode(it.displayName)}&background=00d09c&color=fff&size=128"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(GrowwTeal.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (defaultAvatarUrl != null) {
-                            coil.compose.AsyncImage(
-                                model = defaultAvatarUrl,
-                                contentDescription = "Default avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            Icon(Icons.Default.Person, "User profile icon", tint = GrowwTeal, modifier = Modifier.size(32.dp))
-                        }
-                    }
-                }
+                UserAvatar(
+                    imageUrl = primaryAccount?.profilePictureUrl,
+                    name = primaryAccount?.displayName ?: "Inbox Master",
+                    email = primaryAccount?.email,
+                    modifier = Modifier.size(54.dp),
+                    textStyle = MaterialTheme.typography.titleLarge
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(primaryAccount?.displayName ?: "Inbox Master", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
@@ -2086,9 +2075,22 @@ fun SettingsTabScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(acc.email, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                            Text(if (acc.refreshToken.isEmpty()) "Simulated Profile Sandbox" else "Verified Gmail Profile", style = MaterialTheme.typography.bodySmall, color = GrowwTeal)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            UserAvatar(
+                                imageUrl = acc.profilePictureUrl,
+                                name = acc.displayName.ifEmpty { acc.email },
+                                email = acc.email,
+                                modifier = Modifier.size(36.dp),
+                                textStyle = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(acc.email, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text(if (acc.refreshToken.isEmpty()) "Simulated Profile Sandbox" else "Verified Gmail Profile", style = MaterialTheme.typography.bodySmall, color = GrowwTeal)
+                            }
                         }
                         if (accounts.size > 1) {
                             IconButton(onClick = { viewModel.deleteAccount(acc.email) }) {
@@ -2413,6 +2415,7 @@ fun EmailDetailDialog(
                     UserAvatar(
                         imageUrl = senderLogoUrl,
                         name = mail.senderName.ifEmpty { cleanSender },
+                        email = cleanSender,
                         modifier = Modifier.size(44.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -2937,18 +2940,58 @@ fun ManageTagsDialog(
 fun UserAvatar(
     imageUrl: String?,
     name: String,
+    email: String?,
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
     textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleMedium
 ) {
-    var isError by remember(imageUrl) { mutableStateOf(imageUrl.isNullOrEmpty()) }
+    val emailClean = remember(email) {
+        email?.trim()?.lowercase() ?: ""
+    }
+    
+    val urlsToTry = remember(imageUrl, emailClean) {
+        val list = mutableListOf<String>()
+        
+        if (!imageUrl.isNullOrEmpty() && !AvatarHelper.isUrlFailed(imageUrl)) {
+            list.add(imageUrl)
+        }
+        
+        if (emailClean.isNotEmpty()) {
+            val domain = emailClean.substringAfter("@", "")
+            val isCommonDomain = domain.isEmpty() || 
+                    domain.endsWith("gmail.com") || 
+                    domain.endsWith("yahoo.com") || 
+                    domain.endsWith("outlook.com") || 
+                    domain.endsWith("hotmail.com") || 
+                    domain.endsWith("aol.com") || 
+                    domain.endsWith("icloud.com") ||
+                    !domain.contains(".")
+            
+            if (!isCommonDomain) {
+                val clearbitUrl = "https://logo.clearbit.com/$domain"
+                if (clearbitUrl != imageUrl && !AvatarHelper.isUrlFailed(clearbitUrl)) {
+                    list.add(clearbitUrl)
+                }
+            }
+            
+            val hash = AvatarHelper.getMd5Hash(emailClean)
+            val gravatarUrl = "https://www.gravatar.com/avatar/$hash?d=404"
+            if (gravatarUrl != imageUrl && !AvatarHelper.isUrlFailed(gravatarUrl)) {
+                list.add(gravatarUrl)
+            }
+        }
+        list.toList()
+    }
+    
+    var currentUrlIndex by remember(urlsToTry) { mutableStateOf(0) }
+    val activeUrl = urlsToTry.getOrNull(currentUrlIndex)
     
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
             .background(
-                if (isError) {
+                if (activeUrl == null) {
                     val colors = listOf(
                         Color(0xFF00D09C), // Groww Teal
                         Color(0xFF1A73E8), // Google Blue
@@ -2969,15 +3012,16 @@ fun UserAvatar(
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (!isError && !imageUrl.isNullOrEmpty()) {
+        if (activeUrl != null) {
             coil.compose.AsyncImage(
-                model = imageUrl,
+                model = activeUrl,
                 contentDescription = "Profile picture",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 onState = { state ->
                     if (state is coil.compose.AsyncImagePainter.State.Error) {
-                        isError = true
+                        AvatarHelper.markUrlAsFailed(activeUrl)
+                        currentUrlIndex++
                     }
                 }
             )

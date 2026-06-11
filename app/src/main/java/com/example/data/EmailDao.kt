@@ -72,4 +72,14 @@ interface EmailDao {
         ORDER BY timestamp DESC
     """)
     fun searchMessages(query: String): Flow<List<EmailMessage>>
+
+    // --- Offline Outbox Messages ---
+    @Query("SELECT * FROM outbox_messages ORDER BY timestamp ASC")
+    suspend fun getAllOutboxMessagesDirect(): List<OutboxMessage>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOutboxMessage(message: OutboxMessage)
+
+    @Query("DELETE FROM outbox_messages WHERE id = :id")
+    suspend fun deleteOutboxMessageById(id: Int)
 }

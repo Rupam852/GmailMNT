@@ -8,6 +8,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
 // --- Moshi Mapped Data Classes ---
@@ -50,8 +51,9 @@ data class Candidate(
 // --- Retrofit Setup ---
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST
     suspend fun generateContent(
+        @Url url: String,
         @Query("key") apiKey: String,
         @Body request: GenerateContentRequest
     ): GenerateContentResponse

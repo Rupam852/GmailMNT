@@ -36,7 +36,7 @@ class PreferenceManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_GET_STARTED, value).apply()
 
     var isBiometricEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, true)
+        get() = prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, value).apply()
 
     var renderBackendUrl: String
@@ -58,4 +58,12 @@ class PreferenceManager(context: Context) {
     var draftCategory: String
         get() = prefs.getString(KEY_DRAFT_CATEGORY, "Primary") ?: "Primary"
         set(value) = prefs.edit().putString(KEY_DRAFT_CATEGORY, value).apply()
+
+    fun getLastHistoryId(email: String): String? {
+        return prefs.getString("history_id_${email.trim().lowercase()}", null)
+    }
+
+    fun saveLastHistoryId(email: String, historyId: String) {
+        prefs.edit().putString("history_id_${email.trim().lowercase()}", historyId).apply()
+    }
 }
