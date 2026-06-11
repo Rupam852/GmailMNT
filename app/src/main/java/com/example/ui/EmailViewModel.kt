@@ -48,6 +48,15 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
+        // Cancel notifications for any read emails reactively in background
+        viewModelScope.launch(Dispatchers.Default) {
+            filteredMessages.collect { messages ->
+                messages.filter { it.isRead }.forEach { msg ->
+                    com.example.util.NotificationHelper.cancelNotification(getApplication(), msg.id)
+                }
+            }
+        }
     }
 
     // Accounts & Filtering Stream combines

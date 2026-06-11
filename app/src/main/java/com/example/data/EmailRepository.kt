@@ -220,7 +220,7 @@ class EmailRepository(private val context: Context) {
             // If OAuth token has expired, we attempt refreshing.
             val list = mutableListOf<EmailMessage>()
             try {
-                val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25"
+                val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=150"
                 var request = Request.Builder()
                     .url(url)
                     .header("Authorization", "Bearer ${account.accessToken}")
@@ -256,7 +256,14 @@ class EmailRepository(private val context: Context) {
                                     val msgObj = messagesArray.getJSONObject(index)
                                     val msgId = msgObj.getString("id")
                                     async {
-                                        fetchGmailDetails(msgId, activeToken, accountEmail)
+                                        val existing = dao.getMessageById(msgId)
+                                        // Cache Optimization: skip network details fetch for emails that already
+                                        // exist in our local cache, unless they are the top 20 most recent messages.
+                                        if (existing == null || index < 20) {
+                                            fetchGmailDetails(msgId, activeToken, accountEmail)
+                                        } else {
+                                            existing
+                                        }
                                     }
                                 }.awaitAll()
                             }
@@ -325,7 +332,7 @@ class EmailRepository(private val context: Context) {
         dao.insertMessages(mergedMessages)
 
         newMessages.forEach { msg ->
-            if (!msg.isRead) {
+            if (!msg.isRead && (currentTime - msg.timestamp) < 30 * 60 * 1000) {
                 com.example.util.NotificationHelper.showEmailNotification(
                     context,
                     msg.id,
