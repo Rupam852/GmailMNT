@@ -15,6 +15,7 @@ class PreferenceManager(context: Context) {
         private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val KEY_RENDER_BACKEND_URL = "render_backend_url"
+        private const val KEY_SWIPE_ACTIONS_ENABLED = "swipe_actions_enabled"
         private const val KEY_CUSTOM_TAGS = "custom_tags"
         private const val KEY_DRAFT_RECIPIENT = "draft_recipient"
         private const val KEY_DRAFT_SUBJECT = "draft_subject"
@@ -61,6 +62,10 @@ class PreferenceManager(context: Context) {
     var isNotificationsEnabled: Boolean
         get() = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, value).apply()
+
+    var isSwipeActionsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SWIPE_ACTIONS_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_SWIPE_ACTIONS_ENABLED, value).apply()
 
     var renderBackendUrl: String
         get() = prefs.getString(KEY_RENDER_BACKEND_URL, "https://gmailmnt.onrender.com") ?: "https://gmailmnt.onrender.com"

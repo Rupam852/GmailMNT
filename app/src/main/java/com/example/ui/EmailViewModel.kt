@@ -22,6 +22,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     val isDarkMode = MutableStateFlow(preferences.isDarkMode)
     val isBiometricEnabled = MutableStateFlow(preferences.isBiometricEnabled)
     val isNotificationsEnabled = MutableStateFlow(preferences.isNotificationsEnabled)
+    val isSwipeActionsEnabled = MutableStateFlow(preferences.isSwipeActionsEnabled)
     val geminiApiKey = MutableStateFlow(preferences.geminiApiKey)
     val renderBackendUrl = MutableStateFlow(preferences.renderBackendUrl)
     val isGetStartedCompleted = MutableStateFlow(preferences.isGetStartedCompleted)
@@ -237,6 +238,11 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     fun setNotificationsEnabled(enabled: Boolean) {
         preferences.isNotificationsEnabled = enabled
         isNotificationsEnabled.value = enabled
+    }
+
+    fun setSwipeActionsEnabled(enabled: Boolean) {
+        preferences.isSwipeActionsEnabled = enabled
+        isSwipeActionsEnabled.value = enabled
     }
 
     fun setGeminiApiKey(key: String) {

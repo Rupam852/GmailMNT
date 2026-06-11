@@ -995,6 +995,7 @@ fun InboxTabScreen(
     val selectedTag by viewModel.selectedTag.collectAsState()
     val customTagsList by viewModel.customTags.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
+    val isSwipeActionsEnabled by viewModel.isSwipeActionsEnabled.collectAsState()
     var longPressedMail by remember { mutableStateOf<EmailMessage?>(null) }
 
     Column(
@@ -1355,7 +1356,9 @@ fun InboxTabScreen(
 
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                if (!isSwipeActionsEnabled) {
+                                    false
+                                } else if (value == SwipeToDismissBoxValue.EndToStart) {
                                     onDeleteMail(mail)
                                     true
                                 } else if (value == SwipeToDismissBoxValue.StartToEnd) {
@@ -1386,8 +1389,8 @@ fun InboxTabScreen(
 
                         SwipeToDismissBox(
                             state = dismissState,
-                            enableDismissFromStartToEnd = true,
-                            enableDismissFromEndToStart = true,
+                            enableDismissFromStartToEnd = isSwipeActionsEnabled,
+                            enableDismissFromEndToStart = isSwipeActionsEnabled,
                             backgroundContent = {
                                 val progressVal = dismissState.progress
                                 val alpha = (progressVal * 2.5f).coerceIn(0f, 1f) // Fade in smoothly, fully green/red at 40% swipe
@@ -2101,6 +2104,7 @@ fun SettingsTabScreen(
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val isNotificationsEnabled by viewModel.isNotificationsEnabled.collectAsState()
+    val isSwipeActionsEnabled by viewModel.isSwipeActionsEnabled.collectAsState()
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val renderBackendUrl by viewModel.renderBackendUrl.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
@@ -2319,6 +2323,18 @@ fun SettingsTabScreen(
                         Switch(
                             checked = isNotificationsEnabled,
                             onCheckedChange = { viewModel.setNotificationsEnabled(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
+                        )
+                    }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                ListItem(
+                    headlineContent = { Text("Swipe Actions", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Swipe emails to quickly archive or delete them") },
+                    trailingContent = {
+                        Switch(
+                            checked = isSwipeActionsEnabled,
+                            onCheckedChange = { viewModel.setSwipeActionsEnabled(it) },
                             colors = SwitchDefaults.colors(checkedThumbColor = GrowwTeal, checkedTrackColor = GrowwTeal.copy(alpha = 0.3f))
                         )
                     }
