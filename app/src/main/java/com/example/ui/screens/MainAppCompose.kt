@@ -985,13 +985,16 @@ fun InboxTabScreen(
     val isSwipeActionsEnabled by viewModel.isSwipeActionsEnabled.collectAsState()
     var longPressedMail by remember { mutableStateOf<EmailMessage?>(null) }
     val listState = rememberLazyListState()
-    var wasRefreshing by remember { mutableStateOf(false) }
+    var previousFirstEmailId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(isRefreshing) {
-        if (wasRefreshing && !isRefreshing) {
-            listState.animateScrollToItem(0)
+    LaunchedEffect(filteredMessages) {
+        val firstMail = filteredMessages.firstOrNull()
+        if (firstMail != null) {
+            if (previousFirstEmailId != null && firstMail.id != previousFirstEmailId) {
+                listState.animateScrollToItem(0)
+            }
+            previousFirstEmailId = firstMail.id
         }
-        wasRefreshing = isRefreshing
     }
 
     Column(
