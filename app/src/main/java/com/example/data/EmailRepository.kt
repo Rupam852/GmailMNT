@@ -254,10 +254,13 @@ class EmailRepository(private val context: Context) {
             // If OAuth token has expired, we attempt refreshing.
             val list = mutableListOf<EmailMessage>()
             try {
+                // Re-fetch fresh account to get the latest token (may have been refreshed above)
+                val freshAccount = dao.getAccountByEmail(accountEmail) ?: account
+                val activeToken = freshAccount.accessToken
                 val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=150"
                 var request = Request.Builder()
                     .url(url)
-                    .header("Authorization", "Bearer ${account.accessToken}")
+                    .header("Authorization", "Bearer $activeToken")
                     .build()
 
                 var response = okHttpClient.newCall(request).execute()
@@ -1030,6 +1033,7 @@ class EmailRepository(private val context: Context) {
                 val newHistoryId = root.optString("historyId")
                 
                 val historyArray = root.optJSONArray("history")
+                var newEmailsFound = false
                 if (historyArray != null) {
                     for (i in 0 until historyArray.length()) {
                         val histObj = historyArray.getJSONObject(i)
@@ -1043,6 +1047,7 @@ class EmailRepository(private val context: Context) {
                                     val fullMsg = fetchGmailDetails(msgId, accessToken, accountEmail)
                                     if (fullMsg != null) {
                                         dao.insertMessage(fullMsg)
+                                        newEmailsFound = true
                                         if (!fullMsg.isRead && fullMsg.label == "INBOX") {
                                             com.example.util.NotificationHelper.showEmailNotification(
                                                 context,
@@ -1133,7 +1138,14 @@ class EmailRepository(private val context: Context) {
                 if (newHistoryId.isNotEmpty()) {
                     preferences.saveLastHistoryId(accountEmail, newHistoryId)
                 }
-                HistorySyncResult.Success
+
+                if (newEmailsFound || (historyArray != null && historyArray.length() > 0)) {
+                    Log.d("EmailRepository", "History sync processed ${historyArray?.length() ?: 0} events")
+                    HistorySyncResult.Success
+                } else {
+                    Log.d("EmailRepository", "History sync returned no changes, falling back to full sync")
+                    HistorySyncResult.Error("No new changes in history")
+                }
             }
         } catch (e: Exception) {
             Log.e("EmailRepository", "Error running Gmail History API sync", e)
