@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,7 +77,7 @@ fun MainAppCompose(
     intentData: Intent?,
     onClearIntent: () -> Unit
 ) {
-    var currentScreen by remember { mutableStateOf("splash") }
+    var currentScreen by rememberSaveable { mutableStateOf("splash") }
 
     // Register permission launcher unconditionally at composition root
     val permissionLauncher = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {

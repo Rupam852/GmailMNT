@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -292,18 +294,21 @@ class EmailRepository(private val context: Context) {
                         val messagesArray = JSONObject(stringRes).optJSONArray("messages")
                         if (messagesArray != null) {
                             val activeToken = dao.getAccountByEmail(accountEmail)?.accessToken ?: account.accessToken
+                            val semaphore = Semaphore(5)
                             val detailsList = kotlinx.coroutines.coroutineScope {
                                 (0 until messagesArray.length()).map { index ->
                                     val msgObj = messagesArray.getJSONObject(index)
                                     val msgId = msgObj.getString("id")
                                     async {
-                                        val existing = dao.getMessageById(msgId)
-                                        // Cache Optimization: skip network details fetch for emails that already
-                                        // exist in our local cache, unless they are the top 20 most recent messages.
-                                        if (existing == null || index < 20) {
-                                            fetchGmailDetails(msgId, activeToken, accountEmail)
-                                        } else {
-                                            existing
+                                        semaphore.withPermit {
+                                            val existing = dao.getMessageById(msgId)
+                                            // Cache Optimization: skip network details fetch for emails that already
+                                            // exist in our local cache, unless they are the top 20 most recent messages.
+                                            if (existing == null || index < 20) {
+                                                fetchGmailDetails(msgId, activeToken, accountEmail)
+                                            } else {
+                                                existing
+                                            }
                                         }
                                     }
                                 }.awaitAll()
@@ -372,7 +377,7 @@ class EmailRepository(private val context: Context) {
         }
     }
 
-    private fun fetchGmailDetails(msgId: String, token: String, accountEmail: String): EmailMessage? {
+    private suspend fun fetchGmailDetails(msgId: String, token: String, accountEmail: String): EmailMessage? = withContext(Dispatchers.IO) {
         val url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/$msgId?format=full"
         val request = Request.Builder()
             .url(url)
@@ -381,7 +386,7 @@ class EmailRepository(private val context: Context) {
         try {
             okHttpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
-                    val bodyStr = response.body?.string() ?: ""
+                    val bodyStr = response.body?.string() ?: return@withContext null
                     val json = JSONObject(bodyStr)
                     val payload = json.getJSONObject("payload")
                     val headers = payload.getJSONArray("headers")
@@ -464,13 +469,11 @@ class EmailRepository(private val context: Context) {
 
                     // Insert attachments into DB
                     if (attachments.isNotEmpty()) {
-                        kotlinx.coroutines.runBlocking {
-                            dao.deleteAttachmentsForMessage(msgId)
-                            dao.insertAttachments(attachments)
-                        }
+                        dao.deleteAttachmentsForMessage(msgId)
+                        dao.insertAttachments(attachments)
                     }
 
-                    return EmailMessage(
+                    return@withContext EmailMessage(
                         id = msgId,
                         accountEmail = accountEmail,
                         senderName = fromName,
@@ -491,7 +494,7 @@ class EmailRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("EmailRepository", "Error fetching details for msg $msgId", e)
         }
-        return null
+        return@withContext null
     }
 
     private fun extractAttachmentsFromPayload(messageId: String, payload: JSONObject): List<Attachment> {
