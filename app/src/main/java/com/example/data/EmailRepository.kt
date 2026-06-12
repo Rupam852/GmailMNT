@@ -319,26 +319,8 @@ class EmailRepository(private val context: Context) {
                 Log.e("EmailRepository", "Error fetching real Gmail messages", e)
             }
 
-            // Fallback or fill mock as fallback if real fetched list is empty
-            if (list.isEmpty()) {
-                listOf(
-                    EmailMessage(
-                        id = "real_msg_fallback_1",
-                        accountEmail = accountEmail,
-                        senderName = "Gmail OAuth Sync",
-                        sender = "oauth-sync@gmail-mnt.local",
-                        recipient = accountEmail,
-                        subject = "Sync Complete for ${account.email}",
-                        body = "Your real account is now securely authorized and linked via GmailMNT. Email inbox caches will populate as you receive messages. Since you are running in AI studio sandbox, we support active simulation.",
-                        timestamp = currentTime,
-                        isRead = false,
-                        isStarred = true,
-                        category = "Primary"
-                    )
-                )
-            } else {
-                list
-            }
+            dao.deleteMessageById("real_msg_fallback_1")
+            list
         }
         
         val mergedMessages = mockMessages.map { msg ->

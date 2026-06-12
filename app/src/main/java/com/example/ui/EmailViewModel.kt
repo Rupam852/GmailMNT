@@ -160,10 +160,10 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             if (filter.category != "All") {
                 list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
             } else {
-                // Show only Primary, Updates, Social, Forums, Promotions in All Inbox feed.
+                // All Inbox: Primary, Updates, Social, Forums — exclude Promotions.
                 list = list.filter {
                     val cat = it.category.uppercase()
-                    cat == "PRIMARY" || cat == "UPDATES" || cat == "SOCIAL" || cat == "FORUMS" || cat == "PROMOTIONS"
+                    cat == "PRIMARY" || cat == "UPDATES" || cat == "SOCIAL" || cat == "FORUMS"
                 }
             }
         }
@@ -195,6 +195,25 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             "Starred" -> list.filter { it.isStarred }.sortedByDescending { it.timestamp }
             else -> list.sortedByDescending { it.timestamp }
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val starredMessages: StateFlow<List<EmailMessage>> = combine(
+        selectedAccount,
+        searchQuery,
+        repository.allMessages
+    ) { account, query, allMails ->
+        var list = allMails.filter { it.isStarred && it.label.uppercase() == "INBOX" }
+        if (account != null && account != "All") {
+            list = list.filter { it.accountEmail == account }
+        }
+        if (query.isNotBlank()) {
+            list = list.filter {
+                it.subject.contains(query, ignoreCase = true) ||
+                it.senderName.contains(query, ignoreCase = true) ||
+                it.body.contains(query, ignoreCase = true)
+            }
+        }
+        list.sortedByDescending { it.timestamp }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addCustomTag(tag: String) {
