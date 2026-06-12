@@ -1239,7 +1239,7 @@ fun InboxTabScreen(
 
         // Category Filter Chips Row (horizontal scroll)
         if (selectedFolder.uppercase() == "INBOX") {
-            val categoriesList = listOf("All", "Primary", "Updates", "Social", "Promotions", "Forums")
+            val categoriesList = listOf("All", "Primary", "Updates", "Social", "Promotions", "Forums", "Starred")
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
@@ -1264,6 +1264,15 @@ fun InboxTabScreen(
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        } else if (cat == "Starred") {
+                            {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFC107),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }

@@ -156,7 +156,9 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // 2. Filter by Category / Default Inbox exclusion
-        if (folder.uppercase() == "INBOX") {
+        if (filter.category == "Starred") {
+            list = list.filter { it.isStarred }
+        } else if (folder.uppercase() == "INBOX") {
             if (filter.category != "All") {
                 list = list.filter { it.category.equals(filter.category, ignoreCase = true) }
             } else {
