@@ -5,7 +5,8 @@ import {
   Mail, Shield, Smartphone, Zap, Lock, RefreshCw, Fingerprint,
   Moon, Paperclip, Undo2, Bell, Search, Archive, Trash2,
   Download, ChevronRight, Star, Clock, Wifi, WifiOff, Github,
-  Heart, ArrowRight, Check, Sparkles, Layers, Users, MessageSquare
+  Heart, ArrowRight, Check, Sparkles, Layers, Users, MessageSquare,
+  AlertTriangle
 } from 'lucide-react';
 
 const APP_DOWNLOAD_URL = "https://drive.google.com/file/d/1PYGq9WjXb66TDl3bOt_ugxccDa2g5dRE/view?usp=sharing";
@@ -191,6 +192,26 @@ function HeroSection() {
         </motion.p>
 
         <motion.div
+          className="testing-warning-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+        >
+          <div className="warning-header">
+            <AlertTriangle size={20} />
+            <span>Google OAuth Testing Mode Notice</span>
+          </div>
+          <p className="warning-desc">
+            GmailMNT is currently in <strong>Google OAuth Testing Mode</strong>. To sign in and test the app, Google requires your Gmail address to be manually registered in our test user whitelist. Without this, Google will block your access during sign-in.
+          </p>
+          <div className="warning-action">
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=GmailMNT%20Whitelist%20Request&body=Hi%2C%20please%20add%20my%20email%20address%20to%20the%20GmailMNT%20test%20users%20whitelist.%0A%0AMy%20Google%20Email%3A%20`} className="btn-warning-email">
+              <Mail size={16} /> Request Whitelist Access
+            </a>
+          </div>
+        </motion.div>
+
+        <motion.div
           className="hero-cta"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -274,7 +295,7 @@ function HowItWorksSection() {
 
   const steps = [
     { num: "01", title: "Download & Install", desc: "Get GmailMNT from our secure download link. The APK is just 14 MB — installs in seconds.", icon: Download },
-    { num: "02", title: "Sign in with Google", desc: "Connect your Gmail account securely with OAuth 2.0. We never see or store your password.", icon: Shield },
+    { num: "02", title: "Sign in with Google", desc: "Connect your Gmail account securely with OAuth 2.0. (Note: Testing mode requires email whitelisting via support first).", icon: Shield },
     { num: "03", title: "Enable Biometric Lock", desc: "Add an extra layer of security with fingerprint or face unlock for quick and safe access.", icon: Fingerprint },
     { num: "04", title: "Start Managing Emails", desc: "Enjoy smart categories, undo send, attachments, offline mode, and more — all in one beautiful app.", icon: Mail },
   ];
@@ -424,6 +445,9 @@ function DownloadSection() {
         <a href={APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className="btn-primary btn-large">
           <Download size={22} /> Download APK — 14 MB
         </a>
+        <p style={{ marginTop: '16px', fontSize: '0.85rem', color: '#F59E0B', fontWeight: 500 }}>
+          * Notice: App is in testing mode. Please email <a href={`mailto:${SUPPORT_EMAIL}`} style={{ textDecoration: 'underline', color: '#F59E0B' }}>{SUPPORT_EMAIL}</a> to whitelist your Google account before signing in.
+        </p>
         <div className="download-trust">
           <div className="trust-item">
             <Shield size={14} /> Secure Download

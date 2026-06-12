@@ -1323,3 +1323,90 @@ a {
     font-size: 1rem;
   }
 }
+
+/* ============================================
+   Testing Warning Banner / Card
+   ============================================ */
+.testing-warning-card {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 650px;
+  margin: 30px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.testing-warning-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: #F59E0B;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #F59E0B;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.warning-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.warning-desc strong {
+  color: var(--text-primary);
+}
+
+.warning-action {
+  margin-top: 6px;
+  display: flex;
+}
+
+.btn-warning-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0A0A1A !important;
+  background: #F59E0B;
+  padding: 8px 20px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-warning-email:hover {
+  background: #D97706;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+}
+
+@media (max-width: 480px) {
+  .testing-warning-card {
+    padding: 16px;
+    margin: 20px 10px;
+  }
+  .warning-header {
+    font-size: 1rem;
+  }
+  .warning-desc {
+    font-size: 0.85rem;
+  }
+}
+
