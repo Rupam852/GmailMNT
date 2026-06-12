@@ -94,6 +94,10 @@ class PreferenceManager(context: Context) {
     fun saveLastHistoryId(email: String, historyId: String) {
         prefs.edit().putString("history_id_${email.trim().lowercase()}", historyId).apply()
     }
+
+    fun clearAll() {
+        prefs.edit().clear().apply()
+    }
 }
 
 class SafeSharedPreferences(

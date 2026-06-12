@@ -93,6 +93,11 @@ class EmailRepository(private val context: Context) {
         dao.restoreAllTrash()
     }
 
+    suspend fun clearAllData() = withContext(Dispatchers.IO) {
+        db.clearAllTables()
+        preferences.clearAll()
+    }
+
     suspend fun insertMessage(message: EmailMessage) = withContext(Dispatchers.IO) {
         dao.insertMessage(message)
     }

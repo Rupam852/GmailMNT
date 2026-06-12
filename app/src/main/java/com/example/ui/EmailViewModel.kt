@@ -959,4 +959,35 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         preferences.draftCategory = "Primary"
         activeEditingDraftId.value = null
     }
+
+    fun logoutAndResetApp() {
+        viewModelScope.launch {
+            repository.clearAllData()
+            
+            // Reset ViewModel states
+            geminiApiKey.value = ""
+            isGetStartedCompleted.value = false
+            isBiometricEnabled.value = false
+            isNotificationsEnabled.value = true
+            isSwipeActionsEnabled.value = false
+            renderBackendUrl.value = "https://gmailmnt.onrender.com"
+            customTags.value = setOf("Work", "Personal", "Finance")
+            selectedCategory.value = "All"
+            selectedAccount.value = "All"
+            selectedFolder.value = "INBOX"
+            selectedTag.value = "All"
+            searchQuery.value = ""
+            activeEditingDraftId.value = null
+            selectedTab.value = 0
+            
+            // Show toast message
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(
+                    getApplication(),
+                    "Logged out. Application reset successfully.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
 }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -101,6 +102,12 @@ fun MainAppCompose(
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val isGetStartedCompleted by viewModel.isGetStartedCompleted.collectAsState()
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+
+    LaunchedEffect(isGetStartedCompleted) {
+        if (!isGetStartedCompleted && currentScreen != "splash") {
+            currentScreen = "welcome"
+        }
+    }
 
     // Smart Foreground Active Live-Sync Observer
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -2585,6 +2592,38 @@ fun SettingsTabScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Unread All", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Text("DANGER ZONE", fontWeight = FontWeight.Bold, color = AlertRed, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp, top = 8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "Logging out will remove all linked email accounts, delete cached emails, reset your preferences, and return to the startup screen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                Button(
+                    onClick = {
+                        viewModel.logoutAndResetApp()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AlertRed.copy(alpha = 0.12f),
+                        contentColor = AlertRed
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, AlertRed.copy(alpha = 0.4f))
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, "Logout", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Logout & Reset App", fontWeight = FontWeight.Bold)
                 }
             }
         }
