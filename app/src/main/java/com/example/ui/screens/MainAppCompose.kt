@@ -976,7 +976,6 @@ fun InboxTabScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedSortOrder by viewModel.selectedSortOrder.collectAsState()
     val filteredMessages by viewModel.filteredMessages.collectAsState()
-    val starredMessages by viewModel.starredMessages.collectAsState()
     val selectedAccount by viewModel.selectedAccount.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -1201,41 +1200,7 @@ fun InboxTabScreen(
             }
         }
 
-        // Starred section below search bar
-        if (selectedFolder.uppercase() == "INBOX" && starredMessages.isNotEmpty()) {
-            Column(modifier = Modifier.padding(top = 10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(bottom = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = Color(0xFFFFC107),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Starred",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(starredMessages, key = { it.id }) { mail ->
-                        StarredEmailChip(
-                            mail = mail,
-                            onClick = { onMailClick(mail.id) },
-                            onUnstar = { viewModel.toggleStarred(mail.id, mail.isStarred) }
-                        )
-                    }
-                }
-            }
-        }
+
 
         // Category Filter Chips Row (horizontal scroll)
         if (selectedFolder.uppercase() == "INBOX") {
@@ -1731,58 +1696,7 @@ fun EmailSkeletonRowItem(alpha: Float) {
     }
 }
 
-@Composable
-fun StarredEmailChip(
-    mail: EmailMessage,
-    onClick: () -> Unit,
-    onUnstar: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(200.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        shape = RoundedCornerShape(10.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = mail.senderName.ifEmpty { mail.sender },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = mail.subject,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            IconButton(
-                onClick = onUnstar,
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Unstar",
-                    tint = Color(0xFFFFC107),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-    }
-}
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
