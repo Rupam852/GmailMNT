@@ -155,6 +155,13 @@ function HeroSection() {
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 500], [0, 150]);
   const opacity = useTransform(scrollY, [0, 400], [1, 0]);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(SUPPORT_EMAIL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <section className="hero-section">
@@ -208,6 +215,16 @@ function HeroSection() {
             <a href={`mailto:${SUPPORT_EMAIL}?subject=GmailMNT%20Whitelist%20Request&body=Hi%2C%20please%20add%20my%20email%20address%20to%20the%20GmailMNT%20test%20users%20whitelist.%0A%0AMy%20Google%20Email%3A%20`} className="btn-warning-email">
               <Mail size={16} /> Request Whitelist Access
             </a>
+            <span className="warning-separator">or manually email:</span>
+            <div className="email-copy-box">
+              <code>{SUPPORT_EMAIL}</code>
+              <button 
+                onClick={handleCopy}
+                className={`copy-btn ${copied ? 'copied' : ''}`}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
           </div>
         </motion.div>
 
