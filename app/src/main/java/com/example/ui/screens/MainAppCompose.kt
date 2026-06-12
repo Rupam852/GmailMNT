@@ -131,25 +131,16 @@ fun MainAppCompose(
     LaunchedEffect(intentData) {
         val uri = intentData?.data
         if (uri != null && uri.scheme == "geminimail" && uri.host == "oauth-callback") {
-            val email = uri.getQueryParameter("email") ?: ""
-            val accessToken = uri.getQueryParameter("access_token") ?: ""
-            val refreshToken = uri.getQueryParameter("refresh_token") ?: ""
-            val expiresAtStr = uri.getQueryParameter("expires_at") ?: "0"
-            val expiresAt = expiresAtStr.toLongOrNull() ?: 0L
-            val name = uri.getQueryParameter("name") ?: ""
-            val picture = uri.getQueryParameter("picture") ?: ""
-
-            if (email.isNotEmpty() && accessToken.isNotEmpty()) {
-                viewModel.handleOAuthSuccess(
-                    email = email,
-                    accessToken = accessToken,
-                    refreshToken = refreshToken.takeIf { it.isNotEmpty() },
-                    expiresAt = expiresAt,
-                    displayName = name.takeIf { it.isNotEmpty() },
-                    profilePictureUrl = picture.takeIf { it.isNotEmpty() }
-                )
-                Toast.makeText(fragmentActivity, "Account $email linked successfully!", Toast.LENGTH_LONG).show()
-                currentScreen = "dashboard"
+            val exchangeCode = uri.getQueryParameter("exchange_code") ?: ""
+            if (exchangeCode.isNotEmpty()) {
+                Toast.makeText(fragmentActivity, "Exchanging secure credentials...", Toast.LENGTH_SHORT).show()
+                val account = viewModel.exchangeCodeForTokens(exchangeCode)
+                if (account != null) {
+                    Toast.makeText(fragmentActivity, "Account ${account.email} linked successfully!", Toast.LENGTH_LONG).show()
+                    currentScreen = "dashboard"
+                } else {
+                    Toast.makeText(fragmentActivity, "Authentication failed. Code expired or invalid.", Toast.LENGTH_LONG).show()
+                }
             }
             onClearIntent()
         }

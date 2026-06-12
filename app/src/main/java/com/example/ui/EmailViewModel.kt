@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.util.UUID
 
 class EmailViewModel(application: Application) : AndroidViewModel(application) {
@@ -773,6 +774,34 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
             repository.addAccount(updated)
             // Synchronize of newly configured account completed inside addAccount
         }
+    }
+
+    suspend fun exchangeCodeForTokens(exchangeCode: String): EmailAccount? = withContext(Dispatchers.IO) {
+        val result = repository.exchangeCodeForTokens(exchangeCode, renderBackendUrl.value) ?: return@withContext null
+        try {
+            val email = result.getString("email")
+            val accessToken = result.getString("access_token")
+            val refreshToken = result.optString("refresh_token")
+            val expiresAt = result.getLong("expires_at")
+            val displayName = result.optString("name")
+            val profilePictureUrl = result.optString("picture")
+
+            val existing = repository.getAccountByEmail(email)
+            val updated = EmailAccount(
+                email = email,
+                displayName = displayName.takeIf { it.isNotEmpty() } ?: existing?.displayName ?: email.substringBefore("@").replaceFirstChar { it.uppercase() },
+                provider = "Gmail",
+                accessToken = accessToken,
+                refreshToken = refreshToken.takeIf { it.isNotEmpty() } ?: existing?.refreshToken ?: "",
+                expiresAt = expiresAt,
+                profilePictureUrl = profilePictureUrl.takeIf { it.isNotEmpty() } ?: existing?.profilePictureUrl ?: ""
+            )
+            repository.addAccount(updated)
+            return@withContext updated
+        } catch (e: Exception) {
+            Log.e("EmailViewModel", "Error parsing exchange tokens", e)
+        }
+        return@withContext null
     }
 
     // Manual or scheduled trigger syncing

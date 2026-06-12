@@ -1,7 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const { google } = require('googleapis');
+const crypto = require('crypto');
 require('dotenv').config();
+
+const activeStates = new Set();
+const tokenCache = new Map();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -112,16 +116,22 @@ app.get('/privacy-policy', (req, res) => {
 
 /**
  * 2. GET /auth
- * Redirects user to Google OAuth Concent Screen
+ * Redirects user to Google OAuth Consent Screen
  */
 app.get('/auth', (req, res) => {
   const accountId = req.query.accountId || 'default'; // handle multiple accounts linkage
+  const state = crypto.randomBytes(16).toString('hex') + '_' + accountId;
+  
+  // Store state for CSRF validation (expire in 10 minutes)
+  activeStates.add(state);
+  setTimeout(() => activeStates.delete(state), 10 * 60 * 1000);
+
   const client = getOAuthClient();
   const authUrl = client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent', // ensures refresh token is returned
-    state: accountId
+    state: state
   });
   res.redirect(authUrl);
 });
@@ -137,6 +147,12 @@ app.get('/callback', async (req, res) => {
     return res.status(400).send('Authorization code is missing.');
   }
 
+  // Validate state parameter to prevent CSRF attacks
+  if (!state || !activeStates.has(state)) {
+    return res.status(400).send('Security Check Failed: Invalid state parameter (CSRF risk detected).');
+  }
+  activeStates.delete(state); // consume state
+
   try {
     const client = getOAuthClient();
     const { tokens } = await client.getToken(code);
@@ -146,8 +162,7 @@ app.get('/callback', async (req, res) => {
     const userInfo = await getUserInfo(tokens.access_token);
     const email = userInfo.email;
     
-    // Construct Android redirections deep link
-    // geminimail://oauth-callback?email=...&access_token=...&refresh_token=...&expires_at=...
+    // Construct redirect data
     const redirectData = {
       email: email,
       name: userInfo.name,
@@ -157,12 +172,14 @@ app.get('/callback', async (req, res) => {
       expires_at: tokens.expiry_date || (Date.now() + 3600 * 1000)
     };
 
-    const schemeUrl = `geminimail://oauth-callback?email=${encodeURIComponent(redirectData.email)}` + 
-                      `&name=${encodeURIComponent(redirectData.name || '')}` +
-                      `&picture=${encodeURIComponent(redirectData.picture || '')}` +
-                      `&access_token=${encodeURIComponent(redirectData.access_token)}` + 
-                      `&refresh_token=${encodeURIComponent(redirectData.refresh_token || '')}` + 
-                      `&expires_at=${redirectData.expires_at}`;
+    // Store in short-lived tokenCache (1 minute TTL) to exchange via POST /exchange
+    const exchangeCode = crypto.randomBytes(16).toString('hex');
+    tokenCache.set(exchangeCode, {
+      data: redirectData,
+      expires: Date.now() + 60 * 1000
+    });
+
+    const schemeUrl = `geminimail://oauth-callback?exchange_code=${exchangeCode}`;
 
     res.setHeader('Content-Type', 'text/html');
     res.send(`
@@ -197,6 +214,29 @@ app.get('/callback', async (req, res) => {
     console.error('Error during authorization:', err);
     res.status(500).send(`Authentication failed: ${err.message}`);
   }
+});
+
+/**
+ * 3b. POST /exchange
+ * Securely exchanges short-lived exchange_code for Google OAuth tokens.
+ * Single-use only to prevent replay attacks.
+ */
+app.post('/exchange', (req, res) => {
+  const { exchange_code } = req.body;
+  if (!exchange_code) {
+    return res.status(400).json({ error: 'Exchange code is required.' });
+  }
+
+  const cached = tokenCache.get(exchange_code);
+  if (!cached || cached.expires < Date.now()) {
+    tokenCache.delete(exchange_code);
+    return res.status(400).json({ error: 'Exchange code is invalid or has expired.' });
+  }
+
+  const data = cached.data;
+  tokenCache.delete(exchange_code); // single-use only
+
+  res.json(data);
 });
 
 /**

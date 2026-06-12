@@ -59,6 +59,29 @@ class EmailRepository(private val context: Context) {
         dao.deleteAccount(email)
     }
 
+    suspend fun exchangeCodeForTokens(exchangeCode: String, backendUrl: String): JSONObject? = withContext(Dispatchers.IO) {
+        try {
+            val json = JSONObject().apply {
+                put("exchange_code", exchangeCode)
+            }
+            val requestBody = json.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$backendUrl/exchange")
+                .post(requestBody)
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string() ?: return@withContext null
+                    return@withContext JSONObject(responseBody)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("EmailRepository", "Error exchanging code for tokens", e)
+        }
+        return@withContext null
+    }
+
     suspend fun updateMessage(message: EmailMessage) = withContext(Dispatchers.IO) {
         dao.updateMessage(message)
     }
