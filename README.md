@@ -1,72 +1,161 @@
 # GmailMNT — Secure AI-Powered Gmail Client
 
-GmailMNT is a secure, modern Android email client featuring a premium, dark-mode design system. It is integrated with offline queueing support, incremental synchronization, strictly enforced local biometric security, and Gemini AI smart email composition.
+GmailMNT is a secure, modern, and high-performance Android email client integrated with a Node.js OAuth proxy backend and a React-based landing page. The application features a premium dark-mode design system, incremental synchronization (Gmail History API), an offline send outbox queue (Room DB + WorkManager), strictly enforced biometric security, and a Gemini AI-powered email composition assistant.
 
 ---
 
-## 🚀 Key Features
+## 🏗️ System Architecture
+
+The GmailMNT ecosystem is split into three core components:
+
+```mermaid
+graph TD
+    A[React Landing Page /frontend] -->|Downloads APK| B[Android Client /app]
+    B -->|1. OAuth Request| C[Express OAuth Proxy /backend]
+    C -->|2. Redirects for Consent| D[Google Identity Provider]
+    D -->|3. Delivers Auth Code| C
+    C -->|4. Exchange Code Exchange| B
+    B -->|5. Sync & Send Requests| E[Gmail API Services]
+    B -->|6. Draft Generation| F[Google Gemini API]
+```
+
+1. **Android Client (`/app`)**: Built with Kotlin following modern Android architecture guidelines (MVVM, Jetpack Compose/XML, Room, WorkManager, Coroutines).
+2. **OAuth Proxy Backend (`/backend`)**: A lightweight Node.js Express server that orchestrates secure OAuth 2.0 flows, session state validation (CSRF protection), and token refresh proxying.
+3. **Landing Page (`/frontend`)**: A high-fidelity, responsive marketing site built using Vite, React, Framer Motion, and custom CSS variables.
+
+---
+
+## 🚀 Key Technical Features
 
 ### 1. Incremental Sync (Gmail History API)
-* **High Efficiency:** Utilizes `users.history.list` to retrieve only incremental updates (new messages, deleted messages, starred/read status modifications) since the last sync.
-* **Quota Preservation:** Greatly reduces API usage by avoiding full inbox refreshes.
-* **Graceful Fallbacks:** Automatically triggers a full mailbox scan if the stored history ID has expired on Google's servers.
+* **API Efficiency:** Utilizes `users.history.list` to fetch only changes (new/deleted messages, modifications of stars or labels) since the last synchronized state instead of pulling the entire mailbox.
+* **Preserving Quota:** Optimizes API consumption under tight Google Cloud limits.
+* **Expired State Handlers:** Automatically detects expired or invalidated Google History IDs (HTTP 404/410) and triggers a clean, incremental mailbox refresh.
 
-### 2. Offline Outbox Queue (WorkManager)
-* **Zero Trust Offline Sending:** Allows users to compose and "send" emails even without an active internet connection.
-* **Room DB Storage:** Offline emails are saved locally in a secure Room database outbox queue.
-* **Auto-Resend:** A background `SendEmailWorker` enqueued via Android `WorkManager` with a `CONNECTED` network constraint automatically pushes queued emails once connection is restored.
+### 2. Offline Outbox Queue (Room DB + WorkManager)
+* **Offline Composition:** Users can compose and send messages offline. Emails are queued locally in a secure SQLite Room database outbox.
+* **Background Worker:** A Jetpack `WorkManager` background task (`SendEmailWorker`) runs with a `CONNECTED` network constraint. Once internet access is restored, queued emails are immediately pushed to Gmail in the background.
 
 ### 3. Strictly Enforced Biometric Security
-* **Default Settings:** Biometric lock is **OFF by default** on fresh installations, allowing immediate entry for new users.
-* **Manual Setup:** Users can toggle biometric security ON or OFF in the application settings page.
-* **Hard-Lock Launch Flow:** When enabled, the app enforces a biometric prompt on startup. Cancelling or failing the prompt will not allow access to the dashboard. The app displays an elegant **"Unlock App"** retry button to re-trigger authentication.
+* **Access Control:** Protects user emails by locking the app behind fingerprint or facial biometric verification on launch.
+* **On/Off Toggle:** Disabled by default on clean installations for a frictionless onboard, and can be activated or deactivated within the in-app settings screen.
+* **Hard-Lock startup:** When toggled on, canceling the prompt blocks all access. The user must click **"Unlock App"** to retry.
 
-### 4. Gemini AI Email Composer
-* **Smart Generation:** Enter custom prompts to generate formal or informal email replies and drafts.
-* **Cascading Model Fallbacks:** Automatically falls back through multiple Gemini models (e.g., trying Gemini 2.5 Flash first, then subsequent versions) to ensure robust API availability and prevent error screens on service throttling (HTTP 503).
+### 4. Gemini AI Email Composer & Reply Generator
+* **AI Integration:** Allows users to compose formal, casual, or custom responses using contextual prompt prompts.
+* **Cascading Fallbacks:** Resilience against rate limiting and server throttling. If the primary model API fails or returns HTTP 503, the client automatically cascades through secondary model configurations (e.g., Gemini 2.5 Flash fallback chain) to secure a successful draft.
 
----
-
-## ⚠️ Known Limitations & Design Rules
-
-### 1. Google Privacy Policy (Sender Avatars)
-* **Avatar Restrictions:** Due to Google’s privacy regulations, profile pictures of arbitrary Google accounts cannot be fetched publicly.
-* **Mitigations:** The app uses a secure hierarchy:
-  1. Corporate domains show official logos fetched via Clearbit API (e.g., `@github.com`, `@groww.in`).
-  2. Registered Gravatar pictures are retrieved if available.
-  3. Displays customized initial letters styled dynamically with a colored circle.
-
-### 2. Live Synchronization Latency
-* **Background Sync limits:** Out-of-the-box sync utilizes `WorkManager` periodic requests running every 15 minutes (as per Android OS guidelines).
-* **Instant Sync Requirements:** Real-time push notifications require configuring Google Cloud Pub/Sub `watch()` endpoints alongside Firebase Cloud Messaging (FCM) to deliver silent wake-up events.
-
-### 3. Backend Proxy Hosting (Free Tier)
-* **Spin-up Latency:** The optional helper server used for OAuth and backend proxy runs on Render's free tier. 
-* **Behavior:** If inactive, the backend container spins down and may take up to 30–50 seconds to boot on the first API request.
+### 5. Secure OAuth 2.0 Flow
+* **Security Validation:** Prevents deep link interception by using short-lived exchange codes and random state variables stored dynamically on the backend proxy server to prevent CSRF attacks.
 
 ---
 
-## 🛠️ Build & Local Setup
+## 📂 Project Structure
 
-### Prerequisites
-* **Android Studio** (Koala or later recommended)
+```text
+GmailMnT/
+├── app/                  # Android Client (Kotlin, Jetpack, Room, WorkManager)
+│   └── src/
+│       └── main/
+│           └── java/com/example/
+│               ├── data/ # Repositories & Local Database (Room)
+│               └── ui/   # ViewModels & UI Layout Screens
+├── backend/              # Express Node.js Server (Google OAuth Proxy)
+│   ├── index.js          # Route controllers (Auth, Callback, Exchange, Refresh)
+│   └── package.json
+├── frontend/             # Landing Page (Vite, React, Framer Motion, CSS)
+│   ├── src/
+│   │   ├── LandingPage.jsx
+│   │   └── index.css
+│   └── package.json
+└── README.md             # Project Main Documentation
+```
+
+---
+
+## 🛠️ Build & Installation Guide
+
+### 1. Android Application (`/app`)
+
+#### Prerequisites
+* **Android Studio** (Koala | 2024.1.1 or later)
 * Android SDK Platform 34+
 * JDK 17+
 
-### Environment Configuration
-1. Open the project in Android Studio.
-2. Create a `.env` file in the project root directory.
-3. Add your developer credentials securely:
+#### Configuration
+1. Open the project folder in Android Studio.
+2. In your Android configuration, configure your Gemini API Key and Render Backend URL. Create a `.env` or local configuration properties mapping the following keys:
    ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
+   GEMINI_API_KEY=your_google_gemini_api_key
    RENDER_BACKEND_URL=https://your-custom-backend.onrender.com
    ```
-4. Build the project:
+3. Generate a debug/release build:
    ```bash
    ./gradlew assembleDebug
    ```
 
 ---
 
+### 2. OAuth Proxy Backend (`/backend`)
+
+The backend functions as an Express proxy server to handle authentication with Google API.
+
+#### Setup & Run
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Install npm dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file in the `/backend` folder:
+   ```env
+   PORT=3000
+   GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   GOOGLE_REDIRECT_URI=http://localhost:3000/callback
+   ```
+4. Start the server:
+   ```bash
+   npm start
+   ```
+
+---
+
+### 3. Marketing Landing Page (`/frontend`)
+
+The landing page provides direct APK downloads and guides visitors through Google OAuth Whitelisting setup.
+
+#### Setup & Run
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the Vite development server locally:
+   ```bash
+   npm run dev
+   ```
+4. Build the static production bundle:
+   ```bash
+   npm run build
+   ```
+
+---
+
+## ⚠️ Important sandbox Mode Notice
+
+Since the Google OAuth Cloud project status is set to **"Testing"**, only whitelisted accounts can sign in. Unregistered users will encounter a Google block screen.
+* **Prerequisite:** Visitors must submit their Gmail address via the whitelist request action on the landing page (directed to `rupambairagya08@gmail.com`) before they can authorize access.
+* **Manual Access Fallback:** Users on desktop interfaces without default local mail clients can copy the whitelisting address using the clipboard copy button directly on the website banner.
+
+---
+
 ## 🔒 Security Policy
-GmailMNT stores access tokens and cached email content locally using SQLite/Room. No sensitive user credentials, access tokens, or draft emails are uploaded to any external server other than direct Google APIs and the user's selected Gemini AI endpoint.
+
+* **No Server Data Retention:** The backend operates as a stateless authentication helper. Access tokens, refresh tokens, profile info, and local email databases are stored strictly on-device in secure SQLite Room database sandboxes.
+* **Biometric Locks:** Passcodes/auth keys are handled directly via Android Cryptographic Keystore and Keystore Providers.
